@@ -356,11 +356,16 @@ const employeesOnSelectedDate = selectedDate
 )}
 <section className="panel">
 
-  <div className="flex-between mb-4">
-    <h2>
-      {months[viewDate.getMonth()]} {viewDate.getFullYear()}
-    </h2>
+<div className="flex-between mb-4">
+  <h2>
+    {months[viewDate.getMonth()]} {viewDate.getFullYear()}
+  </h2>
+
+  <div className="btn-group">
+    <button type="button" onClick={() => changeMonth(-1)}>←</button>
+    <button type="button" onClick={() => changeMonth(1)}>→</button>
   </div>
+</div>
 
   <div className="calendar-box">
     <div className="cal-weekdays">
