@@ -57,6 +57,9 @@ useEffect(() => {
       const leaveSnap = await getDocs(collection(db, "leaves"));
       setLeaves(leaveSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
 
+      const groupSnap = await getDocs(collection(db, "staffGroups"));
+      setStaffGroups(groupSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+
       // NEW: Fetch holidays from Firebase
       const holidaySnap = await getDocs(collection(db, "holidays"));
       setPublicHolidays(holidaySnap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -68,8 +71,8 @@ useEffect(() => {
   };
 
   useEffect(() => {
-    refreshData();
-  }, []);
+  refreshData();
+}, []);
 
   const closeSidebarAndGo = (tab) => {
     setActiveTab(tab);
