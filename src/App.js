@@ -139,6 +139,7 @@ const renderCalendarDays = () => {
 
   // State to hold the data for the pop-up modal
   const [overlapModalData, setOverlapModalData] = useState(null);
+  const [groupModalData, setGroupModalData] = useState(null);
 
   // Math logic to check if two date ranges intersect
   const checkOverlap = (start1, end1, start2, end2) => {
@@ -156,6 +157,14 @@ const renderCalendarDays = () => {
   };
 
   const closeOverlapModal = () => setOverlapModalData(null);
+
+  const openGroupModal = (group) => {
+  setGroupModalData(group);
+};
+
+const closeGroupModal = () => {
+  setGroupModalData(null);
+};
 
   // --- ACTIONS ---
   const saveEmployee = async (e) => {
@@ -685,7 +694,12 @@ const employeesOnSelectedDate = selectedDate
       <h2>Saved Staff Groups</h2>
       <div className="closest-list mt-2">
         {staffGroups.map((group) => (
-          <div key={group.id} className="closest-item" style={{ alignItems: "flex-start" }}>
+          <div
+             key={group.id}
+             className="closest-item group-card-clickable"
+             style={{ alignItems: "flex-start", cursor: "pointer" }}
+             onClick={() => openGroupModal(group)}
+>
             <div>
               <strong>{group.name}</strong>
               <div className="muted mt-2">
@@ -694,7 +708,13 @@ const employeesOnSelectedDate = selectedDate
                   : "No members"}
               </div>
             </div>
-            <button className="text-danger" onClick={() => removeGroup(group.id)}>
+            <button
+              className="text-danger"
+              onClick={(e) => {
+                e.stopPropagation();
+                removeGroup(group.id);
+  }}
+>
               Delete
             </button>
           </div>
@@ -788,7 +808,7 @@ const employeesOnSelectedDate = selectedDate
               <p>Checking conflicts for <strong>{overlapModalData.target.employee}</strong> <br/>
                 <span className="muted">({overlapModalData.target.start} to {overlapModalData.target.end})</span>
               </p>
-              
+
               {overlapModalData.overlaps.length > 0 ? (
                 <ul className="overlap-list">
                   {overlapModalData.overlaps.map((o) => (
@@ -808,8 +828,35 @@ const employeesOnSelectedDate = selectedDate
           </div>
         </div>
       )}
-  </div>
-);
-}
 
-export default App;
+      {groupModalData && (
+        <div className="modal-overlay" onClick={closeGroupModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{groupModalData.name}</h3>
+              <button className="close-btn" onClick={closeGroupModal}>&times;</button>
+            </div>
+
+            <div className="modal-body">
+              <p className="muted">Members in this staff group</p>
+
+              {groupModalData.members && groupModalData.members.length > 0 ? (
+                <ul className="overlap-list">
+                  {groupModalData.members.map((member, index) => (
+                    <li key={`${groupModalData.id}-${index}`}>
+                      <strong>{member}</strong>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="no-overlap mt-4">
+                  <p className="muted">No employees in this group.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}export default App;
