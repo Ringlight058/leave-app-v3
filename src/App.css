@@ -443,3 +443,45 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
   border-radius: 8px;
   cursor: pointer;
 }
+.group-member-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+/* Staff Group member selector */
+.checkbox-group.group-member-list{
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #dbe3ee;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.checkbox-group.group-member-list label{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  font-weight: 500;
+  transition: 0.2s ease;
+}
+
+.checkbox-group.group-member-list label:hover{
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.checkbox-group.group-member-list input[type="checkbox"]{
+  width: 18px;
+  height: 18px;
+  accent-color: #3b82f6;
+  cursor: pointer;
+  margin: 0;
+}

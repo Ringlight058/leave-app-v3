@@ -17,6 +17,8 @@ function App() {
   const [leaveSearch, setLeaveSearch] = useState("");
   const [showNotice, setShowNotice] = useState(true);
   const [fadeNotice, setFadeNotice] = useState(false);
+  const [staffGroups, setStaffGroups] = useState([]);
+  const [groupForm, setGroupForm] = useState({ name: "", members: [] });
 
   const [employees, setEmployees] = useState([]);
   const [employeeSearch, setEmployeeSearch] = useState("");
@@ -258,7 +260,40 @@ const renderCalendarDays = () => {
       alert("Could not delete holiday record.");
     }
   };
+const saveGroup = async (e) => {
+  e.preventDefault();
 
+  const safeName = (groupForm.name || "").trim();
+  if (!safeName) return alert("Please enter a group name.");
+  if (groupForm.members.length === 0) return alert("Please select at least one staff member.");
+
+  setIsLoading(true);
+  try {
+    const payload = {
+      name: safeName,
+      members: groupForm.members
+    };
+
+    const docRef = await addDoc(collection(db, "staffGroups"), payload);
+    setStaffGroups((prev) => [...prev, { id: docRef.id, ...payload }]);
+    setGroupForm({ name: "", members: [] });
+    alert("Staff group created successfully!");
+  } catch (error) {
+    console.error("Error saving group:", error);
+    alert(`Could not save group: ${error.message}`);
+  } finally {
+    setIsLoading(false);
+  }
+};
+const removeGroup = async (id) => {
+  if (!window.confirm("Are you sure you want to delete this group?")) return;
+  try {
+    if (id) await deleteDoc(doc(db, "staffGroups", id));
+    setStaffGroups((prev) => prev.filter((item) => item.id !== id));
+  } catch (error) {
+    alert("Could not delete group.");
+  }
+};
   // --- FILTERS ---
 const filteredEmployees = employees.filter((e) => {
   const sectionMatch = !dirFilter.section || e.section === dirFilter.section;
@@ -334,6 +369,7 @@ const employeesOnSelectedDate = selectedDate
           <li className={activeTab === "directory" ? "active" : ""} onClick={() => closeSidebarAndGo("directory")}>Staff Directory</li>
           <li className={activeTab === "records" ? "active" : ""} onClick={() => closeSidebarAndGo("records")}>Leave Records</li>
           <li className="nav-label">Administration</li>
+          <li className={activeTab === "groups" ? "active" : ""} onClick={() => closeSidebarAndGo("groups")}>Staff Groups</li>
           <li className={activeTab === "admin" ? "active" : ""} onClick={() => closeSidebarAndGo("admin")}>Settings & Staff</li>
         </ul>
       </nav>
@@ -599,7 +635,72 @@ const employeesOnSelectedDate = selectedDate
 
   </div>
 )}
+{activeTab === "groups" && (
+  <div className="admin-grid">
+    <form className="panel" onSubmit={saveGroup}>
+      <h2>Create Staff Group</h2>
+      <div className="form-stack">
+        <input
+          type="text"
+          placeholder="Group name"
+          value={groupForm.name}
+          onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
+        />
 
+        <div className="checkbox-group group-member-list">
+          {employees.map((emp) => (
+            <label key={emp.id}>
+              <input
+                type="checkbox"
+                checked={groupForm.members.includes(emp.name)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setGroupForm({
+                      ...groupForm,
+                      members: [...groupForm.members, emp.name]
+                    });
+                  } else {
+                    setGroupForm({
+                      ...groupForm,
+                      members: groupForm.members.filter((m) => m !== emp.name)
+                    });
+                  }
+                }}
+              />
+              {" "}{emp.name} {emp.section ? `(${emp.section})` : ""}
+            </label>
+          ))}
+        </div>
+
+        <button type="submit" className="primary-btn" disabled={isLoading}>
+          {isLoading ? "Saving..." : "Create Group"}
+        </button>
+      </div>
+    </form>
+
+    <div className="panel">
+      <h2>Saved Staff Groups</h2>
+      <div className="closest-list mt-2">
+        {staffGroups.map((group) => (
+          <div key={group.id} className="closest-item" style={{ alignItems: "flex-start" }}>
+            <div>
+              <strong>{group.name}</strong>
+              <div className="muted mt-2">
+                {group.members && group.members.length > 0
+                  ? group.members.join(", ")
+                  : "No members"}
+              </div>
+            </div>
+            <button className="text-danger" onClick={() => removeGroup(group.id)}>
+              Delete
+            </button>
+          </div>
+        ))}
+        {staffGroups.length === 0 && <p className="muted">No groups created yet.</p>}
+      </div>
+    </div>
+  </div>
+)}
           {/* RECORDS TAB */}
           {activeTab === "records" && (
             <div className="panel full-width">
