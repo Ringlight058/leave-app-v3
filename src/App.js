@@ -26,6 +26,9 @@ function App() {
   const [settings] = useState({ excludeFriday: true, excludeSaturday: true });
   const [publicHolidays, setPublicHolidays] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [leaveCheckDate, setLeaveCheckDate] = useState(
+  new Date().toISOString().split("T")[0]
+);
 
   const [empForm, setEmpForm] = useState({ name: "", designation: "", section: "", supervisor: "" });
   const [leaveForm, setLeaveForm] = useState({ employee: "", start: "", end: "" });
@@ -359,6 +362,9 @@ const calculateLeaveDays = (start, end) => {
 const employeesOnSelectedDate = selectedDate
   ? leaves.filter((l) => l.start <= selectedDate && l.end >= selectedDate)
   : [];
+const staffOnLeaveByDate = leaveCheckDate
+  ? leaves.filter((l) => l.start <= leaveCheckDate && l.end >= leaveCheckDate)
+  : [];
   return (
     <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" : ""}`}>
       {/* Sidebar Overlay */}
@@ -380,6 +386,7 @@ const employeesOnSelectedDate = selectedDate
           <li className={activeTab === "dashboard" ? "active" : ""} onClick={() => closeSidebarAndGo("dashboard")}>Visual Board</li>
           <li className={activeTab === "directory" ? "active" : ""} onClick={() => closeSidebarAndGo("directory")}>Staff Directory</li>
           <li className={activeTab === "records" ? "active" : ""} onClick={() => closeSidebarAndGo("records")}>Leave Records</li>
+          <li className={activeTab === "staff-on-leave" ? "active" : ""} onClick={() => closeSidebarAndGo("staff-on-leave")}>Staff on Leave</li>
           <li className="nav-label">Administration</li>
           <li className={activeTab === "groups" ? "active" : ""} onClick={() => closeSidebarAndGo("groups")}>Staff Groups</li>
           <li className={activeTab === "admin" ? "active" : ""} onClick={() => closeSidebarAndGo("admin")}>Settings & Staff</li>
@@ -721,6 +728,63 @@ const employeesOnSelectedDate = selectedDate
         ))}
         {staffGroups.length === 0 && <p className="muted">No groups created yet.</p>}
       </div>
+    </div>
+  </div>
+)}
+{/* STAFF ON LEAVE TAB */}
+{activeTab === "staff-on-leave" && (
+  <div className="panel full-width">
+    <div className="table-header">
+      <h2>Staff on Leave</h2>
+
+      <div className="filter-group">
+        <input
+          type="date"
+          value={leaveCheckDate}
+          onChange={(e) => setLeaveCheckDate(e.target.value)}
+        />
+
+        <button className="refresh-btn" onClick={refreshData}>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <div className="closest-item">
+      <strong>Staff on leave on {leaveCheckDate}</strong>
+      <span className="badge">{staffOnLeaveByDate.length}</span>
+    </div>
+
+    <div className="table-container mt-4">
+      <table className="modern-table">
+        <thead>
+          <tr>
+            <th>Staff</th>
+            <th>Leave Start</th>
+            <th>Leave End</th>
+            <th>Days</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {staffOnLeaveByDate.map((l) => (
+            <tr key={l.id}>
+              <td><strong>{l.employee}</strong></td>
+              <td>{l.start}</td>
+              <td>{l.end}</td>
+              <td>{calculateLeaveDays(l.start, l.end)}</td>
+            </tr>
+          ))}
+
+          {staffOnLeaveByDate.length === 0 && (
+            <tr>
+              <td colSpan="4" className="muted text-center">
+                No staff are on leave on this date.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </div>
   </div>
 )}
