@@ -359,12 +359,71 @@ const calculateLeaveDays = (start, end) => {
 
   return count;
 };
+const getNextWorkingDay = (endDate) => {
+  if (!endDate) return "";
+
+  const holidaySet = new Set(publicHolidays.map((h) => h.date));
+  const date = new Date(endDate);
+  date.setDate(date.getDate() + 1);
+
+  while (true) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2,"0");
+    const day = String(date.getDate()).padStart(2,"0");
+    const dateStr = `${year}-${month}-${day}`;
+
+    const dayOfWeek = date.getDay();
+    const isFriday = dayOfWeek === 5;
+    const isSaturday = dayOfWeek === 6;
+    const isHoliday = holidaySet.has(dateStr);
+
+    if (!isFriday && !isSaturday && !isHoliday) {
+      return dateStr;
+    }
+
+    date.setDate(date.getDate() + 1);
+  }
+};
 const employeesOnSelectedDate = selectedDate
   ? leaves.filter((l) => l.start <= selectedDate && l.end >= selectedDate)
   : [];
 const staffOnLeaveByDate = leaveCheckDate
   ? leaves.filter((l) => l.start <= leaveCheckDate && l.end >= leaveCheckDate)
   : [];
+const todayStr = new Date().toISOString().split("T")[0];
+
+const tomorrowStr = (() => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split("T")[0];
+})();
+
+const returningTomorrow = leaves.filter(
+  (l) => getNextWorkingDay(l.end) === tomorrowStr
+);
+
+const returningThisWeek = leaves.filter((l) => {
+  const returnDate = getNextWorkingDay(l.end);
+  if (!returnDate) return false;
+
+  const today = new Date(todayStr);
+  const next7Days = new Date(todayStr);
+  next7Days.setDate(next7Days.getDate() + 7);
+
+  const rDate = new Date(returnDate);
+  return rDate >= today && rDate <= next7Days;
+});
+const leaveTrendData = months.map((month, index) => {
+  const count = leaves.filter((l) => {
+    if (!l.start) return false;
+    const leaveDate = new Date(l.start);
+    return leaveDate.getMonth() === index;
+  }).length;
+
+  return { month, count };
+});
+
+const maxLeaveCount = Math.max(...leaveTrendData.map((m) => m.count), 1);
   return (
     <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" : ""}`}>
       {/* Sidebar Overlay */}
@@ -387,6 +446,7 @@ const staffOnLeaveByDate = leaveCheckDate
           <li className={activeTab === "directory" ? "active" : ""} onClick={() => closeSidebarAndGo("directory")}>Staff Directory</li>
           <li className={activeTab === "records" ? "active" : ""} onClick={() => closeSidebarAndGo("records")}>Leave Records</li>
           <li className={activeTab === "staff-on-leave" ? "active" : ""} onClick={() => closeSidebarAndGo("staff-on-leave")}>Staff on Leave</li>
+          <li className={activeTab === "leave-trend" ? "active" : ""} onClick={() => closeSidebarAndGo("leave-trend")}>Leave Trend</li>
           <li className="nav-label">Administration</li>
           <li className={activeTab === "groups" ? "active" : ""} onClick={() => closeSidebarAndGo("groups")}>Staff Groups</li>
           <li className={activeTab === "admin" ? "active" : ""} onClick={() => closeSidebarAndGo("admin")}>Settings & Staff</li>
@@ -785,6 +845,78 @@ const staffOnLeaveByDate = leaveCheckDate
           )}
         </tbody>
       </table>
+    </div>
+   <div className="admin-grid mt-4">
+  <section className="panel">
+    <h2>Returning Tomorrow</h2>
+
+    {returningTomorrow.length > 0 ? (
+      returningTomorrow.map((l) => (
+        <div key={l.id} className="closest-item">
+          <div>
+            <strong>{l.employee}</strong>
+            <div className="muted">
+              Return to work: {getNextWorkingDay(l.end)}
+            </div>
+          </div>
+        </div>
+      ))
+    ) : (
+      <p className="muted">No staff returning tomorrow.</p>
+    )}
+  </section>
+
+  <section className="panel">
+    <h2>Returning This Week</h2>
+
+    {returningThisWeek.length > 0 ? (
+      returningThisWeek.map((l) => (
+        <div key={l.id} className="closest-item">
+          <div>
+            <strong>{l.employee}</strong>
+            <div className="muted">
+              Return to work: {getNextWorkingDay(l.end)}
+            </div>
+          </div>
+        </div>
+      ))
+    ) : (
+      <p className="muted">No staff returning this week.</p>
+    )}
+  </section>
+</div>
+  </div>
+)}
+{/* LEAVE TREND TAB */}
+{activeTab === "leave-trend" && (
+  <div className="panel full-width">
+<div className="table-header">
+  <div>
+    <h2>Leave Trend Chart</h2>
+    <p className="muted">
+      The following trend chart culculates the number of leaves starting each month.
+    </p>
+  </div>
+
+  <button className="refresh-btn" onClick={refreshData}>
+    Refresh
+  </button>
+</div>
+
+    <div className="trend-chart">
+      {leaveTrendData.map((item) => (
+        <div key={item.month} className="trend-row">
+          <div className="trend-label">{item.month}</div>
+          <div className="trend-bar-track">
+            <div
+              className="trend-bar"
+              style={{ width: `${(item.count / maxLeaveCount) * 100}%` }}
+            >
+              {item.count > 0 ? item.count : ""}
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   </div>
 )}
