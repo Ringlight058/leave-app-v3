@@ -86,7 +86,7 @@ useEffect(() => {
   const closestLeaves = useMemo(() => {
     const today = new Date().toISOString().split("T")[0];
     return [...leaves]
-      .filter((l) => l.end && l.end >= today)
+      .filter((l) => l.start && l.start > today)
       .sort((a, b) => new Date(a.start) - new Date(b.start))
       .slice(0, 5);
   }, [leaves]);
