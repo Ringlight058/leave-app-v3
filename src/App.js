@@ -390,12 +390,19 @@ const employeesOnSelectedDate = selectedDate
 const staffOnLeaveByDate = leaveCheckDate
   ? leaves.filter((l) => l.start <= leaveCheckDate && l.end >= leaveCheckDate)
   : [];
-const todayStr = new Date().toISOString().split("T")[0];
+const selectedBaseDate = leaveCheckDate || new Date().toISOString().split("T")[0];
+
+const formatDateLocal = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 const tomorrowStr = (() => {
-  const d = new Date();
+  const d = new Date(`${selectedBaseDate}T00:00:00`);
   d.setDate(d.getDate() + 1);
-  return d.toISOString().split("T")[0];
+  return formatDateLocal(d);
 })();
 
 const returningTomorrow = leaves.filter(
@@ -406,12 +413,13 @@ const returningThisWeek = leaves.filter((l) => {
   const returnDate = getNextWorkingDay(l.end);
   if (!returnDate) return false;
 
-  const today = new Date(todayStr);
-  const next7Days = new Date(todayStr);
+  const base = new Date(selectedBaseDate);
+  const next7Days = new Date(selectedBaseDate);
   next7Days.setDate(next7Days.getDate() + 7);
 
   const rDate = new Date(returnDate);
-  return rDate >= today && rDate <= next7Days;
+
+  return rDate >= base && rDate <= next7Days;
 });
 const leaveTrendData = months.map((month, index) => {
   const count = leaves.filter((l) => {
@@ -424,6 +432,16 @@ const leaveTrendData = months.map((month, index) => {
 });
 
 const maxLeaveCount = Math.max(...leaveTrendData.map((m) => m.count), 1);
+const isStaffOnLeaveToday = (staffName) => {
+  const today = new Date().toISOString().split("T")[0];
+
+  return leaves.some(
+    (l) =>
+      l.employee === staffName &&
+      l.start <= today &&
+      l.end >= today
+  );
+};
   return (
     <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" : ""}`}>
       {/* Sidebar Overlay */}
@@ -1038,11 +1056,34 @@ const maxLeaveCount = Math.max(...leaveTrendData.map((m) => m.count), 1);
 
               {groupModalData.members && groupModalData.members.length > 0 ? (
                 <ul className="overlap-list">
-                  {groupModalData.members.map((member, index) => (
-                    <li key={`${groupModalData.id}-${index}`}>
-                      <strong>{member}</strong>
-                    </li>
-                  ))}
+{groupModalData.members.map((member, index) => {
+  const onLeave = isStaffOnLeaveToday(member);
+
+  return (
+    <li
+      key={`${groupModalData.id}-${index}`}
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: "12px"
+      }}
+    >
+      <strong>{member}</strong>
+
+      <span
+        className="badge"
+        style={{
+          background: onLeave ? "#fee2e2" : "#dcfce7",
+          color: onLeave ? "#991b1b" : "#166534",
+          border: "none"
+        }}
+      >
+        {onLeave ? "On Leave" : "Present"}
+      </span>
+    </li>
+  );
+})}
                 </ul>
               ) : (
                 <div className="no-overlap mt-4">
