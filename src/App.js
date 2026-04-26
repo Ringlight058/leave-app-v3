@@ -2,7 +2,7 @@ import logo from "./assets/logo1.png";
 import React, { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import { db } from "./firebase";
-import { collection, addDoc, getDocs, deleteDoc, doc } from "firebase/firestore";
+import { collection, addDoc, getDocs, deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
 import noticeImg from "./assets/notice1.png";
 
 const months = [
@@ -19,6 +19,8 @@ function App() {
   const [fadeNotice, setFadeNotice] = useState(false);
   const [staffGroups, setStaffGroups] = useState([]);
   const [groupForm, setGroupForm] = useState({ name: "", members: [] });
+  const [yaumiyyaUnlocked, setYaumiyyaUnlocked] = useState(false);
+  const [yaumiyyaPassword, setYaumiyyaPassword] = useState("");
 
   const [employees, setEmployees] = useState([]);
   const [employeeSearch, setEmployeeSearch] = useState("");
@@ -29,6 +31,21 @@ function App() {
   const [leaveCheckDate, setLeaveCheckDate] = useState(
   new Date().toISOString().split("T")[0]
 );
+  const [yaumiyyaDate, setYaumiyyaDate] = useState(
+  new Date().toISOString().split("T")[0]
+);
+
+const [yaumiyyaForm, setYaumiyyaForm] = useState({
+  annualLeave: "",
+  familyLeave: "",
+  sickLeave: ""
+});
+
+const [yaumiyyaRecord, setYaumiyyaRecord] = useState({
+  annualLeave: [],
+  familyLeave: [],
+  sickLeave: []
+});
 
   const [empForm, setEmpForm] = useState({ name: "", designation: "", section: "", supervisor: "" });
   const [leaveForm, setLeaveForm] = useState({ employee: "", start: "", end: "" });
@@ -309,6 +326,73 @@ const removeGroup = async (id) => {
     alert("Could not delete group.");
   }
 };
+const loadYaumiyya = async (date) => {
+  try {
+    const ref = doc(db, "yaumiyya", date);
+    const snap = await getDoc(ref);
+
+    if (snap.exists()) {
+      setYaumiyyaRecord({
+        annualLeave: snap.data().annualLeave || [],
+        familyLeave: snap.data().familyLeave || [],
+        sickLeave: snap.data().sickLeave || []
+      });
+    } else {
+      setYaumiyyaRecord({
+        annualLeave: [],
+        familyLeave: [],
+        sickLeave: []
+      });
+    }
+  } catch (error) {
+    console.error("Error loading Yaumiyya:", error);
+  }
+};
+
+useEffect(() => {
+  loadYaumiyya(yaumiyyaDate);
+}, [yaumiyyaDate]);
+
+const saveYaumiyyaRecord = async (nextRecord) => {
+  try {
+    await setDoc(doc(db, "yaumiyya", yaumiyyaDate), {
+      date: yaumiyyaDate,
+      ...nextRecord
+    });
+  } catch (error) {
+    console.error("Error saving Yaumiyya:", error);
+    alert("Could not save Yaumiyya record.");
+  }
+};
+
+const addYaumiyyaStaff = async (type) => {
+  const selectedStaff = yaumiyyaForm[type];
+
+  if (!selectedStaff) return alert("Please select a staff member.");
+
+  if (yaumiyyaRecord[type].includes(selectedStaff)) {
+    return alert("This staff member is already added to this category.");
+  }
+
+  const nextRecord = {
+    ...yaumiyyaRecord,
+    [type]: [...yaumiyyaRecord[type], selectedStaff]
+  };
+
+  setYaumiyyaRecord(nextRecord);
+  setYaumiyyaForm({ ...yaumiyyaForm, [type]: "" });
+  await saveYaumiyyaRecord(nextRecord);
+};
+
+const removeYaumiyyaStaff = async (type, staffName) => {
+  const nextRecord = {
+    ...yaumiyyaRecord,
+    [type]: yaumiyyaRecord[type].filter((name) => name !== staffName)
+  };
+
+  setYaumiyyaRecord(nextRecord);
+  await saveYaumiyyaRecord(nextRecord);
+};
   // --- FILTERS ---
 const filteredEmployees = employees.filter((e) => {
   const sectionMatch = !dirFilter.section || e.section === dirFilter.section;
@@ -465,6 +549,7 @@ const isStaffOnLeaveToday = (staffName) => {
           <li className={activeTab === "records" ? "active" : ""} onClick={() => closeSidebarAndGo("records")}>Leave Records</li>
           <li className={activeTab === "staff-on-leave" ? "active" : ""} onClick={() => closeSidebarAndGo("staff-on-leave")}>Staff on Leave</li>
           <li className={activeTab === "leave-trend" ? "active" : ""} onClick={() => closeSidebarAndGo("leave-trend")}>Leave Trend</li>
+          <li className={activeTab === "yaumiyya" ? "active" : ""} onClick={() => closeSidebarAndGo("yaumiyya")}>Yaumiyya</li>
           <li className="nav-label">Administration</li>
           <li className={activeTab === "groups" ? "active" : ""} onClick={() => closeSidebarAndGo("groups")}>Staff Groups</li>
           <li className={activeTab === "admin" ? "active" : ""} onClick={() => closeSidebarAndGo("admin")}>Settings & Staff</li>
@@ -936,6 +1021,124 @@ const isStaffOnLeaveToday = (staffName) => {
         </div>
       ))}
     </div>
+  </div>
+)}
+{/* YAUMIYYA TAB */}
+{activeTab === "yaumiyya" && (
+  <div className="panel full-width">
+    {!yaumiyyaUnlocked ? (
+      <div className="form-stack" style={{ maxWidth: "400px" }}>
+        <h2>Yaumiyya Access</h2>
+        <p className="muted">Enter password to access this section.</p>
+
+        <input
+          type="password"
+          placeholder="Enter password"
+          value={yaumiyyaPassword}
+          onChange={(e) => setYaumiyyaPassword(e.target.value)}
+        />
+
+        <button
+          className="primary-btn"
+          onClick={() => {
+            if (yaumiyyaPassword === "Admin@123") {
+              setYaumiyyaUnlocked(true);
+              setYaumiyyaPassword("");
+            } else {
+              alert("Incorrect password.");
+            }
+          }}
+        >
+          Unlock Yaumiyya
+        </button>
+      </div>
+    ) : (
+      <>
+        <div className="table-header">
+  <div>
+    <h2>Yaumiyya</h2>
+    <p className="muted">Daily leave category record.</p>
+  </div>
+
+  <div className="filter-group">
+    <input
+      type="date"
+      value={yaumiyyaDate}
+      onChange={(e) => setYaumiyyaDate(e.target.value)}
+    />
+
+    <button
+      className="refresh-btn"
+      onClick={() => loadYaumiyya(yaumiyyaDate)}
+    >
+      Refresh
+    </button>
+  </div>
+</div>
+
+<div className="admin-grid">
+  {[
+    { key: "annualLeave", title: "Annual Leave" },
+    { key: "familyLeave", title: "Family Leave" },
+    { key: "sickLeave", title: "Sick Leave" }
+  ].map((category) => (
+    <section className="panel" key={category.key}>
+      <h2>{category.title}</h2>
+
+      <div className="form-stack">
+        <select
+          value={yaumiyyaForm[category.key]}
+          onChange={(e) =>
+            setYaumiyyaForm({
+              ...yaumiyyaForm,
+              [category.key]: e.target.value
+            })
+          }
+        >
+          <option value="">Select staff</option>
+          {employees.map((emp) => (
+            <option key={emp.id} value={emp.name}>
+              {emp.name}
+            </option>
+          ))}
+        </select>
+
+        <button
+          type="button"
+          className="primary-btn"
+          onClick={() => addYaumiyyaStaff(category.key)}
+        >
+          Add Staff
+        </button>
+      </div>
+
+      <div className="closest-list mt-4">
+        {yaumiyyaRecord[category.key].map((staffName) => (
+          <div key={staffName} className="closest-item">
+            <strong>{staffName}</strong>
+
+            <button
+              className="text-danger"
+              onClick={() =>
+                removeYaumiyyaStaff(category.key, staffName)
+              }
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+
+        {yaumiyyaRecord[category.key].length === 0 && (
+          <p className="muted">
+            No staff added for this category.
+          </p>
+        )}
+      </div>
+    </section>
+  ))}
+</div>
+      </>
+    )}
   </div>
 )}
           {/* RECORDS TAB */}
