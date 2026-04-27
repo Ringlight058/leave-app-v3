@@ -38,13 +38,15 @@ function App() {
 const [yaumiyyaForm, setYaumiyyaForm] = useState({
   annualLeave: "",
   familyLeave: "",
-  sickLeave: ""
+  sickLeaveMC: "",
+  sickLeaveNoMC: ""
 });
 
 const [yaumiyyaRecord, setYaumiyyaRecord] = useState({
   annualLeave: [],
   familyLeave: [],
-  sickLeave: []
+  sickLeaveMC: [],
+  sickLeaveNoMC: []
 });
 
   const [empForm, setEmpForm] = useState({ name: "", designation: "", section: "", supervisor: "" });
@@ -333,16 +335,18 @@ const loadYaumiyya = async (date) => {
 
     if (snap.exists()) {
       setYaumiyyaRecord({
-        annualLeave: snap.data().annualLeave || [],
-        familyLeave: snap.data().familyLeave || [],
-        sickLeave: snap.data().sickLeave || []
-      });
+  annualLeave: snap.data().annualLeave || [],
+  familyLeave: snap.data().familyLeave || [],
+  sickLeaveMC: snap.data().sickLeaveMC || [],
+  sickLeaveNoMC: snap.data().sickLeaveNoMC || []
+});
     } else {
       setYaumiyyaRecord({
-        annualLeave: [],
-        familyLeave: [],
-        sickLeave: []
-      });
+  annualLeave: [],
+  familyLeave: [],
+  sickLeaveMC: [],
+  sickLeaveNoMC: []
+});
     }
   } catch (error) {
     console.error("Error loading Yaumiyya:", error);
@@ -1077,11 +1081,12 @@ const isStaffOnLeaveToday = (staffName) => {
 </div>
 
 <div className="admin-grid">
-  {[
-    { key: "annualLeave", title: "Annual Leave" },
-    { key: "familyLeave", title: "Family Leave" },
-    { key: "sickLeave", title: "Sick Leave" }
-  ].map((category) => (
+{[
+  { key: "annualLeave", title: "Annual Leave" },
+  { key: "familyLeave", title: "Family Leave" },
+  { key: "sickLeaveMC", title: "Sick Leave (With MC)" },
+  { key: "sickLeaveNoMC", title: "Sick Leave (Without MC)" }
+].map((category) => (
     <section className="panel" key={category.key}>
       <h2>{category.title}</h2>
 
