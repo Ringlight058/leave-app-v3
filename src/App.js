@@ -30,7 +30,6 @@ function App() {
   const [imaams, setImaams] = useState([]);
   const [imaamForm, setImaamForm] = useState({ name: "" });
   const [hukuruStatusOptions, setHukuruStatusOptions] = useState([]);
-  const [statusOptionForm, setStatusOptionForm] = useState({ label: "" });
   const [showHukuruEditor, setShowHukuruEditor] = useState(true);
 
 const getInitialHukuruFriday = () => {
@@ -469,38 +468,6 @@ const removeImaam = async (id) => {
     setImaams((prev) => prev.filter((item) => item.id !== id));
   } catch (error) {
     alert("Could not delete Imaam.");
-  }
-};
-const saveStatusOption = async (e) => {
-  e.preventDefault();
-
-  const safeLabel = (statusOptionForm.label || "").trim();
-  if (!safeLabel) return alert("Please enter a status option.");
-
-  setIsLoading(true);
-  try {
-    const payload = { label: safeLabel };
-    const docRef = await addDoc(collection(db, "hukuruStatusOptions"), payload);
-
-    setHukuruStatusOptions((prev) => [...prev, { id: docRef.id, ...payload }]);
-    setStatusOptionForm({ label: "" });
-    alert("Status option added successfully!");
-  } catch (error) {
-    console.error("Error saving status option:", error);
-    alert("Could not save status option.");
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-const removeStatusOption = async (id) => {
-  if (!window.confirm("Delete this status option?")) return;
-
-  try {
-    if (id) await deleteDoc(doc(db, "hukuruStatusOptions", id));
-    setHukuruStatusOptions((prev) => prev.filter((item) => item.id !== id));
-  } catch (error) {
-    alert("Could not delete status option.");
   }
 };
 
