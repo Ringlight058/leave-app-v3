@@ -33,7 +33,14 @@ function App() {
   const [statusOptionForm, setStatusOptionForm] = useState({ label: "" });
   const [showHukuruEditor, setShowHukuruEditor] = useState(true);
   const [showHukuruCalendar, setShowHukuruCalendar] = useState(false);
+  const [randomHukuruSelection, setRandomHukuruSelection] = useState([]);
 
+const formatLocalDateString = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 const getInitialHukuruFriday = () => {
   const d = new Date();
 
@@ -41,7 +48,7 @@ const getInitialHukuruFriday = () => {
     d.setDate(d.getDate() + 1);
   }
 
-  return d.toISOString().split("T")[0];
+  return formatLocalDateString(d);
 };
 
 const [hukuruDate, setHukuruDate] = useState(getInitialHukuruFriday());
@@ -504,6 +511,79 @@ const removeStatusOption = async (id) => {
     alert("Could not delete status option.");
   }
 };
+const pickRandomFrom = (list) => {
+  if (!list || list.length === 0) return "";
+  return list[Math.floor(Math.random() * list.length)];
+};
+
+const generateRandomHukuruSelection = async () => {
+  if (imaams.length < 2) {
+    return alert("Please add at least 2 Imaams before generating.");
+  }
+
+  const previousFriday = getPrevFriday(hukuruDate);
+
+  let previousRecord = emptyHukuruRecord;
+
+  try {
+    const ref = doc(db, "hukuru2026", previousFriday);
+    const snap = await getDoc(ref);
+
+    if (snap.exists()) {
+      previousRecord = snap.data().record || emptyHukuruRecord;
+    }
+  } catch (error) {
+    console.error("Error loading previous Hukuru:", error);
+  }
+
+  const mosques = [
+    { key: "isthiqaama", title: "Masjidh Isthiqaama" },
+    { key: "rilwaan", title: "Masjidh Rilwaan" },
+    { key: "vaguthee", title: "Masjidh Vaguthee" }
+  ];
+
+  const imaamNames = imaams.map((item) => item.name).filter(Boolean);
+
+  const results = mosques.map((mosque) => {
+    const previousImaam = previousRecord[mosque.key]?.imaam?.name || "";
+    const previousBadhal = previousRecord[mosque.key]?.badhalImaam?.name || "";
+
+    const blockedNames = [previousImaam, previousBadhal].filter(Boolean);
+
+    let availableForImaam = imaamNames.filter(
+      (name) => !blockedNames.includes(name)
+    );
+
+    if (availableForImaam.length === 0) {
+      availableForImaam = imaamNames;
+    }
+
+    const selectedImaam = pickRandomFrom(availableForImaam);
+
+    let availableForBadhal = imaamNames.filter(
+      (name) =>
+        name !== selectedImaam &&
+        !blockedNames.includes(name)
+    );
+
+    if (availableForBadhal.length === 0) {
+      availableForBadhal = imaamNames.filter((name) => name !== selectedImaam);
+    }
+
+    const selectedBadhal = pickRandomFrom(availableForBadhal);
+
+    return {
+      mosqueKey: mosque.key,
+      mosque: mosque.title,
+      previousImaam: previousImaam || "—",
+      previousBadhal: previousBadhal || "—",
+      randomImaam: selectedImaam || "—",
+      randomBadhal: selectedBadhal || "—"
+    };
+  });
+
+  setRandomHukuruSelection(results);
+};
 
 const emptyHukuruRecord = {
   isthiqaama: {
@@ -578,7 +658,7 @@ const getNextFriday = (baseDate) => {
     d.setDate(d.getDate() + 1);
   } while (d.getDay() !== 5);
 
-  return d.toISOString().split("T")[0];
+  return formatLocalDateString(d);
 };
 
 const getPrevFriday = (baseDate) => {
@@ -588,7 +668,7 @@ const getPrevFriday = (baseDate) => {
     d.setDate(d.getDate() - 1);
   } while (d.getDay() !== 5);
 
-  return d.toISOString().split("T")[0];
+  return formatLocalDateString(d);
 };
 
 const goNextHukuru = () => {
@@ -782,7 +862,7 @@ const isStaffOnLeaveToday = (staffName) => {
 
   <div className="brand-text">
     <span className="brand-title">Funadhoo Council</span>
-    <small className="brand-version">V3.0</small>
+    <small className="brand-version">V4.0</small>
   </div>
 </div>
         <ul className="nav-menu">
@@ -805,7 +885,7 @@ const isStaffOnLeaveToday = (staffName) => {
         <header className="main-header">
           <button className="burger-btn" onClick={() => setIsSidebarOpen(true)}>☰</button>
           <h1 className="page-title">{activeTab.replace("-", " ").toUpperCase()}</h1>
-          <div className="user-profile">👉2026👈</div>
+          <div className="user-profile">Latest Build: 2026/04/29 12:03</div>
         </header>
 
         <div className="content-area">
@@ -1091,7 +1171,7 @@ const isStaffOnLeaveToday = (staffName) => {
         </button>
       </div>
     ) : (
-      <div className="admin-grid">
+  <div className="imaam-admin-stack">
         <form className="panel" onSubmit={saveImaam}>
           <h2>Add Imaam</h2>
 
@@ -1166,6 +1246,54 @@ const isStaffOnLeaveToday = (staffName) => {
     {hukuruStatusOptions.length === 0 && (
       <p className="muted">No status options added yet.</p>
     )}
+  </div>
+</div>
+<div className="panel full-width">
+  <div className="table-header">
+    <div>
+      <h2>Random Hukuru Selector</h2>
+      <p className="muted">
+        Generates random Imaam and Badhal Imaam for each mosque, excluding the previous Hukuru assignment for the same mosque.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      className="primary-btn-sm"
+      onClick={generateRandomHukuruSelection}
+    >
+      Generate Random Selection
+    </button>
+  </div>
+
+  <div className="table-container mt-4">
+    <table className="modern-table">
+      <thead>
+        <tr>
+          <th>Mosque</th>
+          <th>Random Imaam</th>
+          <th>Random Badhal Imaam</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {randomHukuruSelection.map((row) => (
+          <tr key={row.mosqueKey}>
+            <td><strong>{row.mosque}</strong></td>
+            <td><span className="badge">{row.randomImaam}</span></td>
+            <td><span className="badge">{row.randomBadhal}</span></td>
+          </tr>
+        ))}
+
+        {randomHukuruSelection.length === 0 && (
+          <tr>
+            <td colSpan="3" className="muted text-center">
+              No random selection generated yet.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
   </div>
 </div>
       </div>
@@ -1250,7 +1378,7 @@ const isStaffOnLeaveToday = (staffName) => {
 )}
 {/* STAFF ON LEAVE TAB */}
 {activeTab === "staff-on-leave" && (
-  <div className="panel full-width">
+  <div className="panel full-width random-hukuru-panel">
     <div className="table-header">
       <h2>Staff on Leave</h2>
 
@@ -1430,7 +1558,7 @@ const isStaffOnLeaveToday = (staffName) => {
   </div>
 </div>
 
-<div className="admin-grid">
+<div className="imaam-admin-stack">
 {[
   { key: "annualLeave", title: "Annual Leave" },
   { key: "familyLeave", title: "Family Leave" },

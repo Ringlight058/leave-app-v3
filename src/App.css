@@ -593,3 +593,42 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
   background: #22c55e;
   color: white;
 }
+.random-hukuru-panel {
+  grid-column: 1 / -1;
+}
+
+.random-hukuru-panel .table-container {
+  max-width: 100%;
+}
+.imaam-admin-stack{
+  display:flex;
+  flex-direction:column;
+  gap:24px;
+  max-width:950px;
+  margin:auto;
+}
+
+.imaam-admin-stack .panel{
+  width:100%;
+}
+
+.imaam-admin-stack .closest-list{
+  max-height:320px;
+  overflow-y:auto;
+}
+
+.random-hukuru-panel{
+  width:100%;
+}
+.imaam-admin-stack {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.imaam-admin-stack > .panel,
+.imaam-admin-stack > form.panel {
+  width: 100%;
+}
