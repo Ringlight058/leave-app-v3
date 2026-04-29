@@ -30,7 +30,9 @@ function App() {
   const [imaams, setImaams] = useState([]);
   const [imaamForm, setImaamForm] = useState({ name: "" });
   const [hukuruStatusOptions, setHukuruStatusOptions] = useState([]);
+  const [statusOptionForm, setStatusOptionForm] = useState({ label: "" });
   const [showHukuruEditor, setShowHukuruEditor] = useState(true);
+  const [showHukuruCalendar, setShowHukuruCalendar] = useState(false);
 
 const getInitialHukuruFriday = () => {
   const d = new Date();
@@ -470,6 +472,38 @@ const removeImaam = async (id) => {
     alert("Could not delete Imaam.");
   }
 };
+const saveStatusOption = async (e) => {
+  e.preventDefault();
+
+  const safeLabel = (statusOptionForm.label || "").trim();
+  if (!safeLabel) return alert("Please enter a status option.");
+
+  setIsLoading(true);
+  try {
+    const payload = { label: safeLabel };
+    const docRef = await addDoc(collection(db, "hukuruStatusOptions"), payload);
+
+    setHukuruStatusOptions((prev) => [...prev, { id: docRef.id, ...payload }]);
+    setStatusOptionForm({ label: "" });
+    alert("Status option added successfully!");
+  } catch (error) {
+    console.error("Error saving status option:", error);
+    alert("Could not save status option.");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+const removeStatusOption = async (id) => {
+  if (!window.confirm("Delete this status option?")) return;
+
+  try {
+    if (id) await deleteDoc(doc(db, "hukuruStatusOptions", id));
+    setHukuruStatusOptions((prev) => prev.filter((item) => item.id !== id));
+  } catch (error) {
+    alert("Could not delete status option.");
+  }
+};
 
 const emptyHukuruRecord = {
   isthiqaama: {
@@ -563,6 +597,43 @@ const goNextHukuru = () => {
 
 const goPrevHukuru = () => {
   setHukuruDate(getPrevFriday(hukuruDate));
+};
+const renderHukuruMiniCalendar = () => {
+  const base = new Date(`${hukuruDate}T00:00:00`);
+  const year = base.getFullYear();
+  const month = base.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const cells = [];
+
+  for (let i = 0; i < firstDay; i++) {
+    cells.push(<div key={`hukuru-empty-${i}`} className="hukuru-mini-day empty"></div>);
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const dayOfWeek = new Date(year, month, d).getDay();
+    const isFriday = dayOfWeek === 5;
+    const isSelected = hukuruDate === dateStr;
+
+    cells.push(
+      <button
+        key={dateStr}
+        type="button"
+        className={`hukuru-mini-day ${isFriday ? "hukuru-friday" : ""} ${isSelected ? "hukuru-selected" : ""}`}
+        disabled={!isFriday}
+        onClick={() => {
+          setHukuruDate(dateStr);
+          setShowHukuruCalendar(false);
+        }}
+      >
+        {d}
+      </button>
+    );
+  }
+
+  return cells;
 };
 
   // --- FILTERS ---
@@ -1037,7 +1108,22 @@ const isStaffOnLeaveToday = (staffName) => {
             </button>
           </div>
         </form>
+        <form className="panel" onSubmit={saveStatusOption}>
+  <h2>Add Hukuru Status Option</h2>
 
+  <div className="form-stack">
+    <input
+      type="text"
+      placeholder="Example: Accepted, Not Accepted, Pending"
+      value={statusOptionForm.label}
+      onChange={(e) => setStatusOptionForm({ label: e.target.value })}
+    />
+
+    <button type="submit" className="primary-btn" disabled={isLoading}>
+      {isLoading ? "Saving..." : "Add Status Option"}
+    </button>
+  </div>
+</form>
         <div className="panel">
           <h2>Saved Imaams</h2>
 
@@ -1060,6 +1146,28 @@ const isStaffOnLeaveToday = (staffName) => {
             )}
           </div>
         </div>
+<div className="panel">
+  <h2>Saved Status Options</h2>
+
+  <div className="closest-list mt-2">
+    {hukuruStatusOptions.map((option) => (
+      <div key={option.id} className="closest-item">
+        <strong>{option.label}</strong>
+
+        <button
+          className="text-danger"
+          onClick={() => removeStatusOption(option.id)}
+        >
+          Delete
+        </button>
+      </div>
+    ))}
+
+    {hukuruStatusOptions.length === 0 && (
+      <p className="muted">No status options added yet.</p>
+    )}
+  </div>
+</div>
       </div>
     )}
   </div>
@@ -1430,9 +1538,34 @@ Unlock Hukuru 2026
   ⬅️ Previous Hukuru
 </button>
 
-<span className="badge">
-  {hukuruDate}
-</span>
+<div className="hukuru-date-picker">
+  <button
+    type="button"
+    className="badge hukuru-date-badge"
+    onClick={() => setShowHukuruCalendar(!showHukuruCalendar)}
+  >
+    {hukuruDate}
+  </button>
+
+  {showHukuruCalendar && (
+    <div className="hukuru-mini-calendar">
+      <div className="hukuru-mini-title">
+        {months[new Date(`${hukuruDate}T00:00:00`).getMonth()]}{" "}
+        {new Date(`${hukuruDate}T00:00:00`).getFullYear()}
+      </div>
+
+      <div className="hukuru-mini-weekdays">
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+          <span key={day}>{day}</span>
+        ))}
+      </div>
+
+      <div className="hukuru-mini-grid">
+        {renderHukuruMiniCalendar()}
+      </div>
+    </div>
+  )}
+</div>
 
 <button className="secondary-btn-sm" onClick={goNextHukuru}>
   Next Hukuru ➡️

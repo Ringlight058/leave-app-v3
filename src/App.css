@@ -527,3 +527,69 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
   padding-right: 10px;
   border-radius: 999px;
 }
+.hukuru-date-picker {
+  position: relative;
+  display: inline-block;
+}
+
+.hukuru-date-badge {
+  cursor: pointer;
+  border: none;
+}
+
+.hukuru-mini-calendar {
+  position: absolute;
+  top: 38px;
+  left: 0;
+  z-index: 50;
+  width: 260px;
+  background: white;
+  border: 1px solid #dbe3f0;
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+}
+
+.hukuru-mini-title {
+  font-weight: 700;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.hukuru-mini-weekdays,
+.hukuru-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  text-align: center;
+}
+
+.hukuru-mini-weekdays span {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.hukuru-mini-day {
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: #f1f5f9;
+  cursor: not-allowed;
+}
+
+.hukuru-mini-day.empty {
+  background: transparent;
+}
+
+.hukuru-friday {
+  background: #dcfce7;
+  color: #166534;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.hukuru-selected {
+  background: #22c55e;
+  color: white;
+}
