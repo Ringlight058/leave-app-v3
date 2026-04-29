@@ -1948,6 +1948,19 @@ Unlock Hukuru 2026
                 <ul className="overlap-list">
 {groupModalData.members.map((member, index) => {
   const onLeave = isStaffOnLeaveToday(member);
+  const hasUpcomingLeave15Days = leaves.some((l) => {
+  const today = new Date();
+  const next15 = new Date();
+  next15.setDate(today.getDate() + 15);
+
+  const leaveStart = new Date(`${l.start}T00:00:00`);
+
+  return (
+    l.employee === member &&
+    leaveStart >= today &&
+    leaveStart <= next15
+  );
+});
 
   return (
     <li
@@ -1959,7 +1972,9 @@ Unlock Hukuru 2026
         gap: "12px"
       }}
     >
-      <strong>{member}</strong>
+      <strong style={{ color: hasUpcomingLeave15Days ? "#dc2626" : "inherit" }}>
+  {member}
+</strong>
 
       <span
         className="badge"
