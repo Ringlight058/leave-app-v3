@@ -471,7 +471,7 @@ const removeImaam = async (id) => {
     alert("Could not delete Imaam.");
   }
 };
-const saveHukuruStatusOption = async (e) => {
+const saveStatusOption = async (e) => {
   e.preventDefault();
 
   const safeLabel = (statusOptionForm.label || "").trim();
@@ -493,7 +493,7 @@ const saveHukuruStatusOption = async (e) => {
   }
 };
 
-const removeHukuruStatusOption = async (id) => {
+const removeStatusOption = async (id) => {
   if (!window.confirm("Delete this status option?")) return;
 
   try {
@@ -536,6 +536,7 @@ const loadHukuru = async (date) => {
 
 useEffect(() => {
   loadHukuru(hukuruDate);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [hukuruDate]);
 
 const saveHukuruRecord = async (nextRecord) => {
