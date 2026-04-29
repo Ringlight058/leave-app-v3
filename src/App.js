@@ -21,7 +21,44 @@ function App() {
   const [groupForm, setGroupForm] = useState({ name: "", members: [] });
   const [yaumiyyaUnlocked, setYaumiyyaUnlocked] = useState(false);
   const [yaumiyyaPassword, setYaumiyyaPassword] = useState("");
+  const [imaamUnlocked, setImaamUnlocked] = useState(false);
+  const [imaamPassword, setImaamPassword] = useState("");
 
+  const [hukuruUnlocked, setHukuruUnlocked] = useState(false);
+  const [hukuruPassword, setHukuruPassword] = useState("");
+
+  const [imaams, setImaams] = useState([]);
+  const [imaamForm, setImaamForm] = useState({ name: "" });
+  const [hukuruStatusOptions, setHukuruStatusOptions] = useState([]);
+  const [statusOptionForm, setStatusOptionForm] = useState({ label: "" });
+  const [showHukuruEditor, setShowHukuruEditor] = useState(true);
+
+const getInitialHukuruFriday = () => {
+  const d = new Date();
+
+  while (d.getDay() !== 5) {
+    d.setDate(d.getDate() + 1);
+  }
+
+  return d.toISOString().split("T")[0];
+};
+
+const [hukuruDate, setHukuruDate] = useState(getInitialHukuruFriday());
+
+const [hukuruRecord, setHukuruRecord] = useState({
+  isthiqaama: {
+    imaam: { name: "", accepted: "" },
+    badhalImaam: { name: "", accepted: "" }
+  },
+  rilwaan: {
+    imaam: { name: "", accepted: "" },
+    badhalImaam: { name: "", accepted: "" }
+  },
+  vaguthee: {
+    imaam: { name: "", accepted: "" },
+    badhalImaam: { name: "", accepted: "" }
+  }
+});
   const [employees, setEmployees] = useState([]);
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [leaves, setLeaves] = useState([]);
@@ -75,6 +112,11 @@ useEffect(() => {
     try {
       const empSnap = await getDocs(collection(db, "employees"));
       setEmployees(empSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const imaamSnap = await getDocs(collection(db, "imaams"));
+      setImaams(imaamSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const statusSnap = await getDocs(collection(db, "hukuruStatusOptions"));
+      setHukuruStatusOptions(statusSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      
 
       const leaveSnap = await getDocs(collection(db, "leaves"));
       setLeaves(leaveSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -107,7 +149,7 @@ useEffect(() => {
     return [...leaves]
       .filter((l) => l.start && l.start > today)
       .sort((a, b) => new Date(a.start) - new Date(b.start))
-      .slice(0, 5);
+      .slice(0, 6);
   }, [leaves]);
 
   const holidayDateSet = useMemo(
@@ -397,6 +439,164 @@ const removeYaumiyyaStaff = async (type, staffName) => {
   setYaumiyyaRecord(nextRecord);
   await saveYaumiyyaRecord(nextRecord);
 };
+const saveImaam = async (e) => {
+  e.preventDefault();
+
+  const safeName = (imaamForm.name || "").trim();
+  if (!safeName) return alert("Please enter Imaam name.");
+
+  setIsLoading(true);
+  try {
+    const payload = { name: safeName };
+    const docRef = await addDoc(collection(db, "imaams"), payload);
+
+    setImaams((prev) => [...prev, { id: docRef.id, ...payload }]);
+    setImaamForm({ name: "" });
+    alert("Imaam added successfully!");
+  } catch (error) {
+    console.error("Error saving Imaam:", error);
+    alert("Could not save Imaam.");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+const removeImaam = async (id) => {
+  if (!window.confirm("Are you sure you want to delete this Imaam?")) return;
+
+  try {
+    if (id) await deleteDoc(doc(db, "imaams", id));
+    setImaams((prev) => prev.filter((item) => item.id !== id));
+  } catch (error) {
+    alert("Could not delete Imaam.");
+  }
+};
+const saveHukuruStatusOption = async (e) => {
+  e.preventDefault();
+
+  const safeLabel = (statusOptionForm.label || "").trim();
+  if (!safeLabel) return alert("Please enter a status option.");
+
+  setIsLoading(true);
+  try {
+    const payload = { label: safeLabel };
+    const docRef = await addDoc(collection(db, "hukuruStatusOptions"), payload);
+
+    setHukuruStatusOptions((prev) => [...prev, { id: docRef.id, ...payload }]);
+    setStatusOptionForm({ label: "" });
+    alert("Status option added successfully!");
+  } catch (error) {
+    console.error("Error saving status option:", error);
+    alert("Could not save status option.");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+const removeHukuruStatusOption = async (id) => {
+  if (!window.confirm("Delete this status option?")) return;
+
+  try {
+    if (id) await deleteDoc(doc(db, "hukuruStatusOptions", id));
+    setHukuruStatusOptions((prev) => prev.filter((item) => item.id !== id));
+  } catch (error) {
+    alert("Could not delete status option.");
+  }
+};
+
+const emptyHukuruRecord = {
+  isthiqaama: {
+    imaam: { name: "", accepted: "" },
+    badhalImaam: { name: "", accepted: "" }
+  },
+  rilwaan: {
+    imaam: { name: "", accepted: "" },
+    badhalImaam: { name: "", accepted: "" }
+  },
+  vaguthee: {
+    imaam: { name: "", accepted: "" },
+    badhalImaam: { name: "", accepted: "" }
+  }
+};
+
+const loadHukuru = async (date) => {
+  try {
+    const ref = doc(db, "hukuru2026", date);
+    const snap = await getDoc(ref);
+
+    if (snap.exists()) {
+      setHukuruRecord(snap.data().record || emptyHukuruRecord);
+    } else {
+      setHukuruRecord(emptyHukuruRecord);
+    }
+  } catch (error) {
+    console.error("Error loading Hukuru:", error);
+  }
+};
+
+useEffect(() => {
+  loadHukuru(hukuruDate);
+}, [hukuruDate]);
+
+const saveHukuruRecord = async (nextRecord) => {
+  try {
+    await setDoc(doc(db, "hukuru2026", hukuruDate), {
+      date: hukuruDate,
+      record: nextRecord
+    });
+  } catch (error) {
+    console.error("Error saving Hukuru:", error);
+    alert("Could not save Hukuru record.");
+  }
+};
+
+const updateHukuruField = (mosqueKey, roleKey, field, value) => {
+  const nextRecord = {
+    ...hukuruRecord,
+    [mosqueKey]: {
+      ...hukuruRecord[mosqueKey],
+      [roleKey]: {
+        ...hukuruRecord[mosqueKey][roleKey],
+        [field]: value
+      }
+    }
+  };
+
+  setHukuruRecord(nextRecord);
+};
+
+const handleSaveHukuruRecord = async () => {
+  await saveHukuruRecord(hukuruRecord);
+  alert("Hukuru 2026 record saved successfully!");
+};
+const getNextFriday = (baseDate) => {
+  const d = new Date(`${baseDate}T00:00:00`);
+
+  do {
+    d.setDate(d.getDate() + 1);
+  } while (d.getDay() !== 5);
+
+  return d.toISOString().split("T")[0];
+};
+
+const getPrevFriday = (baseDate) => {
+  const d = new Date(`${baseDate}T00:00:00`);
+
+  do {
+    d.setDate(d.getDate() - 1);
+  } while (d.getDay() !== 5);
+
+  return d.toISOString().split("T")[0];
+};
+
+const goNextHukuru = () => {
+  setHukuruDate(getNextFriday(hukuruDate));
+};
+
+const goPrevHukuru = () => {
+  setHukuruDate(getPrevFriday(hukuruDate));
+};
+
   // --- FILTERS ---
 const filteredEmployees = employees.filter((e) => {
   const sectionMatch = !dirFilter.section || e.section === dirFilter.section;
@@ -550,10 +750,12 @@ const isStaffOnLeaveToday = (staffName) => {
           <li className={activeTab === "home" ? "active" : ""} onClick={() => closeSidebarAndGo("home")}>Home</li>
           <li className={activeTab === "dashboard" ? "active" : ""} onClick={() => closeSidebarAndGo("dashboard")}>Visual Board</li>
           <li className={activeTab === "directory" ? "active" : ""} onClick={() => closeSidebarAndGo("directory")}>Staff Directory</li>
+          <li className={activeTab === "imaam-directory" ? "active" : ""} onClick={() => closeSidebarAndGo("imaam-directory")}>Imaam Directory</li>
           <li className={activeTab === "records" ? "active" : ""} onClick={() => closeSidebarAndGo("records")}>Leave Records</li>
           <li className={activeTab === "staff-on-leave" ? "active" : ""} onClick={() => closeSidebarAndGo("staff-on-leave")}>Staff on Leave</li>
           <li className={activeTab === "leave-trend" ? "active" : ""} onClick={() => closeSidebarAndGo("leave-trend")}>Leave Trend</li>
           <li className={activeTab === "yaumiyya" ? "active" : ""} onClick={() => closeSidebarAndGo("yaumiyya")}>Yaumiyya</li>
+          <li className={activeTab === "hukuru-2026" ? "active" : ""} onClick={() => closeSidebarAndGo("hukuru-2026")}>Hukuru 2026</li>
           <li className="nav-label">Administration</li>
           <li className={activeTab === "groups" ? "active" : ""} onClick={() => closeSidebarAndGo("groups")}>Staff Groups</li>
           <li className={activeTab === "admin" ? "active" : ""} onClick={() => closeSidebarAndGo("admin")}>Settings & Staff</li>
@@ -821,7 +1023,79 @@ const isStaffOnLeaveToday = (staffName) => {
 
   </div>
 )}
-{activeTab === "groups" && (
+{/* IMAAM DIRECTORY TAB */}
+{activeTab === "imaam-directory" && (
+  <div className="panel full-width">
+    {!imaamUnlocked ? (
+      <div className="form-stack" style={{ maxWidth: "400px" }}>
+        <h2>Imaam Directory Access</h2>
+
+        <input
+          type="password"
+          placeholder="Enter password"
+          value={imaamPassword}
+          onChange={(e) => setImaamPassword(e.target.value)}
+        />
+
+        <button
+          className="primary-btn"
+          onClick={() => {
+            if (imaamPassword === "Imaam@2026") {
+              setImaamUnlocked(true);
+              setImaamPassword("");
+            } else {
+              alert("Incorrect password.");
+            }
+          }}
+        >
+          Unlock Imaam Directory
+        </button>
+      </div>
+    ) : (
+      <div className="admin-grid">
+        <form className="panel" onSubmit={saveImaam}>
+          <h2>Add Imaam</h2>
+
+          <div className="form-stack">
+            <input
+              type="text"
+              placeholder="Imaam name"
+              value={imaamForm.name}
+              onChange={(e) => setImaamForm({ name: e.target.value })}
+            />
+
+            <button type="submit" className="primary-btn" disabled={isLoading}>
+              {isLoading ? "Saving..." : "Add Imaam"}
+            </button>
+          </div>
+        </form>
+
+        <div className="panel">
+          <h2>Saved Imaams</h2>
+
+          <div className="closest-list mt-2">
+            {imaams.map((imaam) => (
+              <div key={imaam.id} className="closest-item">
+                <strong>{imaam.name}</strong>
+
+                <button
+                  className="text-danger"
+                  onClick={() => removeImaam(imaam.id)}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+
+            {imaams.length === 0 && (
+              <p className="muted">No Imaams added yet.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+)}{activeTab === "groups" && (
   <div className="admin-grid">
     <form className="panel" onSubmit={saveGroup}>
       <h2>Create Staff Group</h2>
@@ -1045,7 +1319,7 @@ const isStaffOnLeaveToday = (staffName) => {
         <button
           className="primary-btn"
           onClick={() => {
-            if (yaumiyyaPassword === "Admin@123") {
+            if (yaumiyyaPassword === "Yaumiyya@2026") {
               setYaumiyyaUnlocked(true);
               setYaumiyyaPassword("");
             } else {
@@ -1145,6 +1419,185 @@ const isStaffOnLeaveToday = (staffName) => {
       </>
     )}
   </div>
+)}
+{/* HUKURU 2026 TAB */}
+{activeTab === "hukuru-2026" && (
+<div className="panel full-width">
+{!hukuruUnlocked ? (
+<div className="form-stack" style={{maxWidth:"400px"}}>
+<h2>Hukuru 2026 Access</h2>
+
+<input
+type="password"
+placeholder="Enter password"
+value={hukuruPassword}
+onChange={(e)=>setHukuruPassword(e.target.value)}
+/>
+
+<button
+className="primary-btn"
+onClick={()=>{
+if(hukuruPassword==="Hukuru@2026"){
+setHukuruUnlocked(true);
+setHukuruPassword("");
+}else{
+alert("Incorrect password.");
+}
+}}
+>
+Unlock Hukuru 2026
+</button>
+
+</div>
+) : (
+  <div className="panel full-width">
+    <div className="table-header">
+      <div>
+        <h2>Hukuru 2026</h2>
+        <p className="muted">Friday Imaam duty records by mosque.</p>
+      </div>
+
+      <div className="filter-group">
+        <button className="secondary-btn-sm" onClick={goPrevHukuru}>
+  ⬅️ Previous Hukuru
+</button>
+
+<span className="badge">
+  {hukuruDate}
+</span>
+
+<button className="secondary-btn-sm" onClick={goNextHukuru}>
+  Next Hukuru ➡️
+</button>
+
+        <button
+          className="refresh-btn"
+          onClick={() => {
+            refreshData();
+            loadHukuru(hukuruDate);
+          }}
+        >
+          Refresh
+        </button>
+
+        <button
+          className="primary-btn-sm"
+          onClick={() => setShowHukuruEditor(!showHukuruEditor)}
+        >
+          {showHukuruEditor ? "Hide Selection Menu" : "Show Selection Menu"}
+        </button>
+      </div>
+    </div>
+
+    {showHukuruEditor && (
+      <>
+        <div className="admin-grid">
+          {[
+            { key: "isthiqaama", title: "Masjidh Isthiqaama" },
+            { key: "rilwaan", title: "Masjidh Rilwaan" },
+            { key: "vaguthee", title: "Masjidh Vaguthee" }
+          ].map((mosque) => (
+            <section className="panel" key={mosque.key}>
+              <h2>{mosque.title}</h2>
+
+              {[
+                { key: "imaam", title: "Imaam" },
+                { key: "badhalImaam", title: "Badhal Imaam" }
+              ].map((role) => (
+                <div key={role.key} className="form-stack mt-4">
+                  <h3>{role.title}</h3>
+
+                  <select
+                    value={hukuruRecord[mosque.key][role.key].name}
+                    onChange={(e) =>
+                      updateHukuruField(
+                        mosque.key,
+                        role.key,
+                        "name",
+                        e.target.value
+                      )
+                    }
+                  >
+                    <option value="">Select Imaam</option>
+                    {imaams.map((imaam) => (
+                      <option key={imaam.id} value={imaam.name}>
+                        {imaam.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={hukuruRecord[mosque.key][role.key].accepted}
+                    onChange={(e) =>
+                      updateHukuruField(
+                        mosque.key,
+                        role.key,
+                        "accepted",
+                        e.target.value
+                      )
+                    }
+                  >
+                    <option value="">Select status</option>
+                    {hukuruStatusOptions.map((option) => (
+                      <option key={option.id} value={option.label}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </section>
+          ))}
+        </div>
+
+        <div className="mt-4">
+          <button className="primary-btn" onClick={handleSaveHukuruRecord}>
+            Save Hukuru Record
+          </button>
+        </div>
+      </>
+    )}
+
+    <div className="table-container mt-4">
+      <table className="modern-table">
+        <thead>
+          <tr>
+            <th>Mosque</th>
+            <th>Imaam</th>
+            <th>Imaam Status</th>
+            <th>Badhal Imaam</th>
+            <th>Badhal Status</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {[
+            { key: "isthiqaama", title: "Masjidh Isthiqaama" },
+            { key: "rilwaan", title: "Masjidh Rilwaan" },
+            { key: "vaguthee", title: "Masjidh Vaguthee" }
+          ].map((mosque) => (
+            <tr key={mosque.key}>
+              <td><strong>{mosque.title}</strong></td>
+              <td>{hukuruRecord[mosque.key].imaam.name || "—"}</td>
+              <td>
+                <span className="badge">
+                  {hukuruRecord[mosque.key].imaam.accepted || "—"}
+                </span>
+              </td>
+              <td>{hukuruRecord[mosque.key].badhalImaam.name || "—"}</td>
+              <td>
+                <span className="badge">
+                  {hukuruRecord[mosque.key].badhalImaam.accepted || "—"}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
+</div>
 )}
           {/* RECORDS TAB */}
           {activeTab === "records" && (
