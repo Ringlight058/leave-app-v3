@@ -16,17 +16,34 @@ function App() {
   const [viewDate, setViewDate] = useState(new Date());
   const [leaveSearch, setLeaveSearch] = useState("");
   const [showNotice, setShowNotice] = useState(true);
+  const [showSalaamFRL, setShowSalaamFRL] = useState(false);
   const [fadeNotice, setFadeNotice] = useState(false);
   const [staffGroups, setStaffGroups] = useState([]);
   const [groupForm, setGroupForm] = useState({ name: "", members: [] });
   const [yaumiyyaUnlocked, setYaumiyyaUnlocked] = useState(false);
   const [yaumiyyaPassword, setYaumiyyaPassword] = useState("");
   const [showYaumiyyaEditor, setShowYaumiyyaEditor] = useState(true);
+  const [vagutheePeriodStart, setVagutheePeriodStart] = useState("");
+  const [vagutheePeriodEnd, setVagutheePeriodEnd] = useState("");
   const [imaamUnlocked, setImaamUnlocked] = useState(false);
   const [imaamPassword, setImaamPassword] = useState("");
+  const [vagutheeUnlocked, setVagutheeUnlocked] = useState(false);
+  const [vagutheePassword, setVagutheePassword] = useState("");
+  const [showVagutheeEditor, setShowVagutheeEditor] = useState(true);
+  const [vagutheeSearch, setVagutheeSearch] = useState("");
 
   const [hukuruUnlocked, setHukuruUnlocked] = useState(false);
   const [hukuruPassword, setHukuruPassword] = useState("");
+  const [vagutheeRecords, setVagutheeRecords] = useState([]);
+const [vagutheeForm, setVagutheeForm] = useState({
+  name: "",
+  start: "",
+  end: ""
+});
+
+const [vagutheeStartDate, setVagutheeStartDate] = useState("");
+const [vagutheeEndDate, setVagutheeEndDate] = useState("");
+const [showVagutheeCalendar, setShowVagutheeCalendar] = useState(false);
 
   const [imaams, setImaams] = useState([]);
   const [imaamForm, setImaamForm] = useState({ name: "" });
@@ -289,6 +306,23 @@ const closeGroupModal = () => {
     if (leaveForm.end < leaveForm.start) {
       return alert("End date cannot be before start date.");
     }
+const hasOverlap = vagutheeRecords.some((record) => {
+  const samePerson =
+    (record.name || "").toLowerCase() === vagutheeForm.name.toLowerCase();
+
+  const dateOverlap =
+    vagutheeForm.start <= record.end && record.start <= vagutheeForm.end;
+
+  return samePerson && dateOverlap;
+});
+
+if (hasOverlap) {
+  const proceed = window.confirm(
+    "This person already has an overlapping Vaguthee Imaam record in this period. Do you still want to save?"
+  );
+
+  if (!proceed) return;
+}
 
     setIsLoading(true);
     try {
@@ -407,6 +441,10 @@ const loadYaumiyya = async (date) => {
 useEffect(() => {
   loadYaumiyya(yaumiyyaDate);
 }, [yaumiyyaDate]);
+useEffect(() => {
+  initializeVagutheePeriod();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
 const saveYaumiyyaRecord = async (nextRecord) => {
   try {
@@ -467,6 +505,93 @@ const saveImaam = async (e) => {
     alert("Could not save Imaam.");
   } finally {
     setIsLoading(false);
+  }
+};
+const getVagutheePeriod = (baseDate = new Date()) => {
+  const d = new Date(baseDate);
+
+  let start;
+  let end;
+
+  if (d.getDate() >= 11) {
+    start = new Date(d.getFullYear(), d.getMonth(), 11);
+    end = new Date(d.getFullYear(), d.getMonth() + 1, 10);
+  } else {
+    start = new Date(d.getFullYear(), d.getMonth() - 1, 11);
+    end = new Date(d.getFullYear(), d.getMonth(), 10);
+  }
+
+  return {
+    start: formatLocalDateString(start),
+    end: formatLocalDateString(end)
+  };
+};
+
+const loadVagutheeRecords = async (startDate, endDate) => {
+  try {
+    const snap = await getDocs(collection(db, "vagutheeImaam"));
+    const allRecords = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    const filtered = allRecords.filter(
+      (r) => r.start <= endDate && r.end >= startDate
+    );
+
+    setVagutheeRecords(filtered);
+  } catch (error) {
+    console.error("Error loading Vaguthee Imaam records:", error);
+  }
+};
+
+const initializeVagutheePeriod = () => {
+  const period = getVagutheePeriod();
+  setVagutheePeriodStart(period.start);
+  setVagutheePeriodEnd(period.end);
+  loadVagutheeRecords(period.start, period.end);
+};
+
+const shiftVagutheePeriod = (direction) => {
+  const base = new Date(`${vagutheePeriodStart}T00:00:00`);
+  base.setMonth(base.getMonth() + direction);
+
+  const period = getVagutheePeriod(base);
+
+  setVagutheePeriodStart(period.start);
+  setVagutheePeriodEnd(period.end);
+  loadVagutheeRecords(period.start, period.end);
+};
+
+const saveVagutheeRecord = async (e) => {
+  e.preventDefault();
+
+  if (!vagutheeForm.name || !vagutheeForm.start || !vagutheeForm.end) {
+    return alert("Please enter name, start date and end date.");
+  }
+
+  if (vagutheeForm.end < vagutheeForm.start) {
+    return alert("End date cannot be before start date.");
+  }
+
+  try {
+    const payload = { ...vagutheeForm };
+    const docRef = await addDoc(collection(db, "vagutheeImaam"), payload);
+
+    setVagutheeRecords((prev) => [...prev, { id: docRef.id, ...payload }]);
+    setVagutheeForm({ name: "", start: "", end: "" });
+    alert("Vaguthee Imaam record saved.");
+  } catch (error) {
+    console.error("Error saving Vaguthee Imaam record:", error);
+    alert("Could not save record.");
+  }
+};
+
+const removeVagutheeRecord = async (id) => {
+  if (!window.confirm("Delete this Vaguthee Imaam record?")) return;
+
+  try {
+    await deleteDoc(doc(db, "vagutheeImaam", id));
+    setVagutheeRecords((prev) => prev.filter((r) => r.id !== id));
+  } catch (error) {
+    alert("Could not delete record.");
   }
 };
 
@@ -840,6 +965,19 @@ const leaveTrendData = months.map((month, index) => {
 });
 
 const maxLeaveCount = Math.max(...leaveTrendData.map((m) => m.count), 1);
+const filteredVagutheeRecords = vagutheeRecords.filter((record) =>
+  (record.name || "").toLowerCase().includes(vagutheeSearch.toLowerCase())
+);
+const todaySalaamFRL = {
+  familyLeave: yaumiyyaRecord.familyLeave || [],
+  sickLeaveMC: yaumiyyaRecord.sickLeaveMC || [],
+  sickLeaveNoMC: yaumiyyaRecord.sickLeaveNoMC || []
+};
+
+const hasSalaamFRL =
+  todaySalaamFRL.familyLeave.length > 0 ||
+  todaySalaamFRL.sickLeaveMC.length > 0 ||
+  todaySalaamFRL.sickLeaveNoMC.length > 0;
 const isStaffOnLeaveToday = (staffName) => {
   const today = new Date().toISOString().split("T")[0];
 
@@ -875,6 +1013,9 @@ const isStaffOnLeaveToday = (staffName) => {
           <li className={activeTab === "staff-on-leave" ? "active" : ""} onClick={() => closeSidebarAndGo("staff-on-leave")}>Staff on Leave</li>
           <li className={activeTab === "leave-trend" ? "active" : ""} onClick={() => closeSidebarAndGo("leave-trend")}>Leave Trend</li>
           <li className={activeTab === "yaumiyya" ? "active" : ""} onClick={() => closeSidebarAndGo("yaumiyya")}>Yaumiyya</li>
+          <li className={activeTab === "vaguthee-imaam" ? "active" : ""} onClick={() => closeSidebarAndGo("vaguthee-imaam")}>
+  Vaguthee Imaam
+</li>
           <li className={activeTab === "hukuru-2026" ? "active" : ""} onClick={() => closeSidebarAndGo("hukuru-2026")}>Hukuru 2026</li>
           <li className="nav-label">Administration</li>
           <li className={activeTab === "groups" ? "active" : ""} onClick={() => closeSidebarAndGo("groups")}>Staff Groups</li>
@@ -886,7 +1027,7 @@ const isStaffOnLeaveToday = (staffName) => {
         <header className="main-header">
           <button className="burger-btn" onClick={() => setIsSidebarOpen(true)}>☰</button>
           <h1 className="page-title">{activeTab.replace("-", " ").toUpperCase()}</h1>
-          <div className="user-profile">Latest Build: 2026/04/29 12:03</div>
+          <div className="user-profile">Latest Build: 2026/05/03 10:32</div>
         </header>
 
         <div className="content-area">
@@ -964,10 +1105,101 @@ const isStaffOnLeaveToday = (staffName) => {
                   ))}
                   {closestLeaves.length === 0 && <p className="muted">No upcoming leave records.</p>}
                 </div>
-              </section>
+</section>
+
+<div className="panel full-width" style={{ gridColumn: "1 / -1" }}>
+  <button
+    className="primary-btn"
+    type="button"
+    onClick={() => setShowSalaamFRL(!showSalaamFRL)}
+  >
+    {showSalaamFRL ? "Hide Salaam/FRL" : "Show Salaam/FRL"}
+  </button>
+
+  {showSalaamFRL && (
+    <div
+  className="closest-list mt-2"
+  style={{
+    maxHeight: "none",
+    overflowY: "visible"
+  }}
+>
+{yaumiyyaRecord.annualLeave.length > 0 && (
+  <section className="panel">
+    <h2>Annual Leave</h2>
+    <div className="closest-list mt-2">
+      {yaumiyyaRecord.annualLeave.map((name) => (
+        <div key={`annual-${name}`} className="closest-item">
+          <strong>{name}</strong>
+        </div>
+      ))}
+    </div>
+  </section>
+)}
+
+      {yaumiyyaRecord.familyLeave.length > 0 && (
+        <section className="panel">
+          <h2>Family Leave</h2>
+          <div
+  className="closest-list mt-2"
+  style={{
+    maxHeight: "none",
+    overflowY: "visible"
+  }}
+>
+            {yaumiyyaRecord.familyLeave.map((name) => (
+              <div key={name} className="closest-item">
+                <strong>{name}</strong>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {yaumiyyaRecord.sickLeaveMC.length > 0 && (
+        <section className="panel">
+          <h2>Sick Leave With MC</h2>
+          <div
+  className="closest-list mt-2"
+  style={{
+    maxHeight: "none",
+    overflowY: "visible"
+  }}
+>
+            {yaumiyyaRecord.sickLeaveMC.map((name) => (
+              <div key={name} className="closest-item">
+                <strong>{name}</strong>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {yaumiyyaRecord.sickLeaveNoMC.length > 0 && (
+        <section className="panel">
+          <h2>Sick Leave Without MC</h2>
+          <div
+  className="closest-list mt-2"
+  style={{
+    maxHeight: "none",
+    overflowY: "visible"
+  }}
+>
+            {yaumiyyaRecord.sickLeaveNoMC.map((name) => (
+              <div key={name} className="closest-item">
+                <strong>{name}</strong>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+    </div>
+  )}
+</div>
+
             </div>
           )}
-
           {/* DASHBOARD TAB */}
           {activeTab === "dashboard" && (
             <div className="admin-grid">
@@ -1615,14 +1847,16 @@ const isStaffOnLeaveToday = (staffName) => {
           <div key={staffName} className="closest-item">
             <strong>{staffName}</strong>
 
-            <button
-              className="text-danger"
-              onClick={() =>
-                removeYaumiyyaStaff(category.key, staffName)
-              }
-            >
-              Remove
-            </button>
+{showYaumiyyaEditor && (
+  <button
+    className="text-danger"
+    onClick={() =>
+      removeYaumiyyaStaff(category.key, staffName)
+    }
+  >
+    Remove
+  </button>
+)}
           </div>
         ))}
 
@@ -1639,7 +1873,178 @@ const isStaffOnLeaveToday = (staffName) => {
     )}
   </div>
 )}
-{/* HUKURU 2026 TAB */}
+{/* VAGUTHEE IMAAM TAB */}
+{activeTab === "vaguthee-imaam" && (
+  <div className="panel full-width">
+    {!vagutheeUnlocked ? (
+      <div className="form-stack" style={{ maxWidth: "400px" }}>
+        <h2>Vaguthee Imaam Access</h2>
+        <p className="muted">Enter password to access this section.</p>
+
+        <input
+          type="password"
+          placeholder="Enter password"
+          value={vagutheePassword}
+          onChange={(e) => setVagutheePassword(e.target.value)}
+        />
+
+        <button
+          className="primary-btn"
+          onClick={() => {
+            if (vagutheePassword === "Vaguthee@2026") {
+              setVagutheeUnlocked(true);
+              setVagutheePassword("");
+            } else {
+              alert("Incorrect password.");
+            }
+          }}
+        >
+          Unlock Vaguthee Imaam
+        </button>
+      </div>
+    ) : (
+      <>
+        <div className="table-header">
+          <div>
+            <h2>Vaguthee Imaam</h2>
+            <p className="muted">
+              Records from 11th to 10th period.
+            </p>
+          </div>
+
+          <div className="filter-group">
+            <button className="secondary-btn-sm" onClick={() => shiftVagutheePeriod(-1)}>
+              ⬅️ Previous Period
+            </button>
+
+            <button
+              className="badge hukuru-date-badge"
+              onClick={() => setShowVagutheeCalendar(showVagutheeCalendar === "start" ? null : "start")}
+            >
+              {vagutheePeriodStart}
+            </button>
+
+            <span className="muted">to</span>
+
+            <button
+              className="badge hukuru-date-badge"
+              onClick={() => setShowVagutheeCalendar(showVagutheeCalendar === "end" ? null : "end")}
+            >
+              {vagutheePeriodEnd}
+            </button>
+
+            <button className="secondary-btn-sm" onClick={() => shiftVagutheePeriod(1)}>
+              Next Period ➡️
+            </button>
+
+<input
+  type="text"
+  placeholder="Search name..."
+  value={vagutheeSearch}
+  onChange={(e) => setVagutheeSearch(e.target.value)}
+/>
+
+            <button
+              className="primary-btn-sm"
+              onClick={() => setShowVagutheeEditor(!showVagutheeEditor)}
+            >
+              {showVagutheeEditor ? "Hide Selection Menu" : "Show Selection Menu"}
+            </button>
+          </div>
+        </div>
+
+        {showVagutheeCalendar && (
+          <div className="panel mb-4">
+            <input
+              type="date"
+              value={showVagutheeCalendar === "start" ? vagutheePeriodStart : vagutheePeriodEnd}
+              onChange={(e) => {
+                if (showVagutheeCalendar === "start") {
+                  setVagutheePeriodStart(e.target.value);
+                  loadVagutheeRecords(e.target.value, vagutheePeriodEnd);
+                } else {
+                  setVagutheePeriodEnd(e.target.value);
+                  loadVagutheeRecords(vagutheePeriodStart, e.target.value);
+                }
+                setShowVagutheeCalendar(null);
+              }}
+            />
+          </div>
+        )}
+
+        {showVagutheeEditor && (
+          <form className="panel mt-4" onSubmit={saveVagutheeRecord}>
+            <h2>Add Vaguthee Imaam Record</h2>
+
+            <div className="form-stack">
+              <input
+                type="text"
+                placeholder="Person name"
+                value={vagutheeForm.name}
+                onChange={(e) => setVagutheeForm({ ...vagutheeForm, name: e.target.value })}
+              />
+
+              <input
+                type="date"
+                value={vagutheeForm.start}
+                onChange={(e) => setVagutheeForm({ ...vagutheeForm, start: e.target.value })}
+              />
+
+              <input
+                type="date"
+                value={vagutheeForm.end}
+                onChange={(e) => setVagutheeForm({ ...vagutheeForm, end: e.target.value })}
+              />
+
+              <button className="primary-btn" type="submit">
+                Save Record
+              </button>
+            </div>
+          </form>
+        )}
+
+        <div className="table-container mt-4">
+          <table className="modern-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Date Range</th>
+                <th>Days</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {filteredVagutheeRecords.map((record) => (
+                <tr key={record.id}>
+                  <td><strong>{record.name}</strong></td>
+                  <td>{record.start} → {record.end}</td>
+                  <td>{calculateLeaveDays(record.start, record.end)}</td>
+                  <td>
+                    <button
+                      className="text-danger"
+                      onClick={() => removeVagutheeRecord(record.id)}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+
+              {filteredVagutheeRecords.length === 0 && (
+                <tr>
+                  <td colSpan="4" className="muted text-center">
+                    No records found for this period.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </>
+    )}
+  </div>
+)}{/* HUKURU 2026 TAB */}
 {activeTab === "hukuru-2026" && (
 <div className="panel full-width">
 {!hukuruUnlocked ? (
