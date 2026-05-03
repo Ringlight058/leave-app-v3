@@ -41,8 +41,6 @@ const [vagutheeForm, setVagutheeForm] = useState({
   end: ""
 });
 
-const [vagutheeStartDate, setVagutheeStartDate] = useState("");
-const [vagutheeEndDate, setVagutheeEndDate] = useState("");
 const [showVagutheeCalendar, setShowVagutheeCalendar] = useState(false);
 
   const [imaams, setImaams] = useState([]);
@@ -968,16 +966,7 @@ const maxLeaveCount = Math.max(...leaveTrendData.map((m) => m.count), 1);
 const filteredVagutheeRecords = vagutheeRecords.filter((record) =>
   (record.name || "").toLowerCase().includes(vagutheeSearch.toLowerCase())
 );
-const todaySalaamFRL = {
-  familyLeave: yaumiyyaRecord.familyLeave || [],
-  sickLeaveMC: yaumiyyaRecord.sickLeaveMC || [],
-  sickLeaveNoMC: yaumiyyaRecord.sickLeaveNoMC || []
-};
 
-const hasSalaamFRL =
-  todaySalaamFRL.familyLeave.length > 0 ||
-  todaySalaamFRL.sickLeaveMC.length > 0 ||
-  todaySalaamFRL.sickLeaveNoMC.length > 0;
 const isStaffOnLeaveToday = (staffName) => {
   const today = new Date().toISOString().split("T")[0];
 
