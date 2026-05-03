@@ -122,8 +122,19 @@ body { font-family: "Inter", system-ui, sans-serif; background: var(--bg-main); 
 
 .panel h2 { font-size: 1.2rem; margin-bottom: 1.2rem; color: var(--text-dark); }
 
-.home-grid, .admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.5rem; align-items: start; }
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
 
+.home-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
 .full-width { width: 100%; }
 
 
@@ -631,4 +642,40 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
 .imaam-admin-stack > .panel,
 .imaam-admin-stack > form.panel {
   width: 100%;
+}
+/* HOME PAGE FINAL LAYOUT FIX */
+.home-grid {
+  display: grid !important;
+  grid-template-columns: minmax(420px, 1fr) minmax(420px, 1fr) !important;
+  gap: 1.5rem !important;
+  align-items: start !important;
+}
+
+.home-grid > .panel {
+  width: 100% !important;
+}
+
+.home-grid > .full-width {
+  grid-column: 1 / -1 !important;
+}
+
+@media (max-width: 900px) {
+  .home-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+/* HOME NOTICE SHOULD NOT BREAK GRID */
+.home-grid .calendar-notice {
+  grid-column: 1 / -1;
+  position: static !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin-bottom: 0 !important;
+  transform: none !important;
+}
+
+.home-grid .calendar-notice img {
+  width: 100%;
+  max-height: 90px;
+  object-fit: contain;
 }
