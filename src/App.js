@@ -21,6 +21,7 @@ function App() {
   const [groupForm, setGroupForm] = useState({ name: "", members: [] });
   const [yaumiyyaUnlocked, setYaumiyyaUnlocked] = useState(false);
   const [yaumiyyaPassword, setYaumiyyaPassword] = useState("");
+  const [showYaumiyyaEditor, setShowYaumiyyaEditor] = useState(true);
   const [imaamUnlocked, setImaamUnlocked] = useState(false);
   const [imaamPassword, setImaamPassword] = useState("");
 
@@ -1555,6 +1556,12 @@ const isStaffOnLeaveToday = (staffName) => {
     >
       Refresh
     </button>
+<button
+  className="primary-btn-sm"
+  onClick={() => setShowYaumiyyaEditor(!showYaumiyyaEditor)}
+>
+  {showYaumiyyaEditor ? "Hide Selection Menu" : "Show Selection Menu"}
+</button>
   </div>
 </div>
 
@@ -1568,6 +1575,7 @@ const isStaffOnLeaveToday = (staffName) => {
     <section className="panel" key={category.key}>
       <h2>{category.title}</h2>
 
+{showYaumiyyaEditor && (
       <div className="form-stack">
         <select
           value={yaumiyyaForm[category.key]}
@@ -1594,8 +1602,15 @@ const isStaffOnLeaveToday = (staffName) => {
           Add Staff
         </button>
       </div>
+)}
 
-      <div className="closest-list mt-4">
+      <div
+  className="closest-list mt-4"
+  style={{
+    maxHeight: showYaumiyyaEditor ? "320px" : "none",
+    overflowY: showYaumiyyaEditor ? "auto" : "visible"
+  }}
+>
         {yaumiyyaRecord[category.key].map((staffName) => (
           <div key={staffName} className="closest-item">
             <strong>{staffName}</strong>
