@@ -31,6 +31,7 @@ function App() {
   const [vagutheePassword, setVagutheePassword] = useState("");
   const [showVagutheeEditor, setShowVagutheeEditor] = useState(true);
   const [vagutheeSearch, setVagutheeSearch] = useState("");
+  const [showGroupForm, setShowGroupForm] = useState(true);
 
   const [hukuruUnlocked, setHukuruUnlocked] = useState(false);
   const [hukuruPassword, setHukuruPassword] = useState("");
@@ -233,6 +234,29 @@ const renderCalendarDays = () => {
   const checkOverlap = (start1, end1, start2, end2) => {
     return start1 <= end2 && start2 <= end1;
   };
+const getOverlapRange = (start1, end1, start2, end2) => {
+  const overlapStart = new Date(Math.max(new Date(start1), new Date(start2)));
+  const overlapEnd = new Date(Math.min(new Date(end1), new Date(end2)));
+
+  if (overlapStart > overlapEnd) {
+    return { start: "", end: "", totalDays: 0, workingDays: 0 };
+  }
+
+  const overlapStartStr = formatLocalDateString(overlapStart);
+  const overlapEndStr = formatLocalDateString(overlapEnd);
+
+  const totalDays =
+    Math.floor((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24)) + 1;
+
+  const workingDays = calculateLeaveDays(overlapStartStr, overlapEndStr);
+
+  return {
+    start: overlapStartStr,
+    end: overlapEndStr,
+    totalDays,
+    workingDays
+  };
+};
 
   // Function fired when the button is clicked
   const viewOverlaps = (targetLeave) => {
@@ -1521,9 +1545,19 @@ const isStaffOnLeaveToday = (staffName) => {
       </div>
     )}
   </div>
-)}{activeTab === "groups" && (
-  <div className="admin-grid">
-    <form className="panel" onSubmit={saveGroup}>
+)}
+{activeTab === "groups" && (
+  <div className="admin-grid groups-page">
+   <div style={{ gridColumn: "1 / -1", marginBottom: "10px" }}>
+  <button
+    className="primary-btn-sm"
+    onClick={() => setShowGroupForm(!showGroupForm)}
+  >
+    {showGroupForm ? "Hide Create Group" : "Show Create Group"}
+  </button>
+</div>
+    {showGroupForm && (
+  <form className="panel" onSubmit={saveGroup}>
       <h2>Create Staff Group</h2>
       <div className="form-stack">
         <input
@@ -1563,6 +1597,7 @@ const isStaffOnLeaveToday = (staffName) => {
         </button>
       </div>
     </form>
+)}
 
     <div className="panel">
       <h2>Saved Staff Groups</h2>
@@ -1582,15 +1617,17 @@ const isStaffOnLeaveToday = (staffName) => {
                   : "No members"}
               </div>
             </div>
-            <button
-              className="text-danger"
-              onClick={(e) => {
-                e.stopPropagation();
-                removeGroup(group.id);
-  }}
->
-              Delete
-            </button>
+            {showGroupForm && (
+  <button
+    className="text-danger"
+    onClick={(e) => {
+      e.stopPropagation();
+      removeGroup(group.id);
+    }}
+  >
+    Delete
+  </button>
+)}
           </div>
         ))}
         {staffGroups.length === 0 && <p className="muted">No groups created yet.</p>}
@@ -2324,12 +2361,30 @@ Unlock Hukuru 2026
 
               {overlapModalData.overlaps.length > 0 ? (
                 <ul className="overlap-list">
-                  {overlapModalData.overlaps.map((o) => (
-                    <li key={o.id}>
-                      <strong>{o.employee}</strong>
-                      <div>{o.start} — {o.end}</div>
-                    </li>
-                  ))}
+                  {overlapModalData.overlaps.map((o) => {
+const overlapInfo = getOverlapRange(
+  overlapModalData.target.start,
+  overlapModalData.target.end,
+  o.start,
+  o.end
+);
+
+  return (
+    <li key={o.id} className="overlap-item-row">
+      <div>
+        <strong>{o.employee}</strong>
+        <div>{o.start} — {o.end}</div>
+      </div>
+
+      <div className="overlap-days-badge">
+  {overlapInfo.workingDays} working days
+  <span className="overlap-total-days">
+    ({overlapInfo.totalDays} total days)
+  </span>
+</div>
+    </li>
+  );
+})}
                 </ul>
               ) : (
                 <div className="no-overlap mt-4">
@@ -2409,5 +2464,7 @@ Unlock Hukuru 2026
         </div>
       )}
     </div>
-  );
-}export default App;
+);
+}
+
+export default App;

@@ -679,3 +679,40 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
   max-height: 90px;
   object-fit: contain;
 }
+.overlap-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.overlap-days-badge {
+  font-weight: 800;
+  color: #dc2626;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+.overlap-days-badge {
+  font-weight: 800;
+  color: #dc2626;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.overlap-total-days {
+  display: block;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 2px;
+}
+/* Staff Groups page layout */
+.groups-page {
+  grid-template-columns: 1fr !important;
+  max-width: 1200px;
+}
+
+.groups-page > .panel {
+  width: 100%;
+}
