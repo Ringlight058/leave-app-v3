@@ -32,6 +32,7 @@ function App() {
   const [showVagutheeEditor, setShowVagutheeEditor] = useState(true);
   const [vagutheeSearch, setVagutheeSearch] = useState("");
   const [showGroupForm, setShowGroupForm] = useState(true);
+  const [editingGroupId, setEditingGroupId] = useState(null);
 
   const [hukuruUnlocked, setHukuruUnlocked] = useState(false);
   const [hukuruPassword, setHukuruPassword] = useState("");
@@ -408,17 +409,42 @@ const saveGroup = async (e) => {
   if (!safeName) return alert("Please enter a group name.");
   if (groupForm.members.length === 0) return alert("Please select at least one staff member.");
 
+  const duplicateGroup = staffGroups.some(
+    (group) =>
+      group.name.toLowerCase() === safeName.toLowerCase() &&
+      group.id !== editingGroupId
+  );
+
+  if (duplicateGroup) {
+    return alert("A staff group with this name already exists.");
+  }
+
   setIsLoading(true);
+
   try {
     const payload = {
       name: safeName,
       members: groupForm.members
     };
 
-    const docRef = await addDoc(collection(db, "staffGroups"), payload);
-    setStaffGroups((prev) => [...prev, { id: docRef.id, ...payload }]);
+    if (editingGroupId) {
+      await setDoc(doc(db, "staffGroups", editingGroupId), payload);
+
+      setStaffGroups((prev) =>
+        prev.map((group) =>
+          group.id === editingGroupId ? { id: editingGroupId, ...payload } : group
+        )
+      );
+
+      setEditingGroupId(null);
+      alert("Staff group updated successfully!");
+    } else {
+      const docRef = await addDoc(collection(db, "staffGroups"), payload);
+      setStaffGroups((prev) => [...prev, { id: docRef.id, ...payload }]);
+      alert("Staff group created successfully!");
+    }
+
     setGroupForm({ name: "", members: [] });
-    alert("Staff group created successfully!");
   } catch (error) {
     console.error("Error saving group:", error);
     alert(`Could not save group: ${error.message}`);
@@ -434,6 +460,14 @@ const removeGroup = async (id) => {
   } catch (error) {
     alert("Could not delete group.");
   }
+};
+const editGroup = (group) => {
+  setEditingGroupId(group.id);
+  setGroupForm({
+    name: group.name || "",
+    members: group.members || []
+  });
+  setShowGroupForm(true);
 };
 const loadYaumiyya = async (date) => {
   try {
@@ -1553,12 +1587,12 @@ const isStaffOnLeaveToday = (staffName) => {
     className="primary-btn-sm"
     onClick={() => setShowGroupForm(!showGroupForm)}
   >
-    {showGroupForm ? "Hide Create Group" : "Show Create Group"}
+    {showGroupForm ? "Edit Mode On" : "View Mode"}
   </button>
 </div>
     {showGroupForm && (
   <form className="panel" onSubmit={saveGroup}>
-      <h2>Create Staff Group</h2>
+      <h2>{editingGroupId ? "Edit Staff Group" : "Create Staff Group"}</h2>
       <div className="form-stack">
         <input
           type="text"
@@ -1593,7 +1627,7 @@ const isStaffOnLeaveToday = (staffName) => {
         </div>
 
         <button type="submit" className="primary-btn" disabled={isLoading}>
-          {isLoading ? "Saving..." : "Create Group"}
+          {isLoading ? "Saving..." : editingGroupId ? "Update Group" : "Create Group"}
         </button>
       </div>
     </form>
@@ -1602,7 +1636,7 @@ const isStaffOnLeaveToday = (staffName) => {
     <div className="panel">
       <h2>Saved Staff Groups</h2>
       <div className="closest-list mt-2">
-        {staffGroups.map((group) => (
+        {[...staffGroups].sort((a, b) => (a.name || "").localeCompare(b.name || "")).map((group) => (
           <div
              key={group.id}
              className="closest-item group-card-clickable"
@@ -1610,23 +1644,37 @@ const isStaffOnLeaveToday = (staffName) => {
              onClick={() => openGroupModal(group)}
 >
             <div>
-              <strong>{group.name}</strong>
+              <strong>
+  {group.name} ({group.members?.length || 0} members)
+</strong>
               <div className="muted mt-2">
                 {group.members && group.members.length > 0
                   ? group.members.join(", ")
                   : "No members"}
               </div>
             </div>
-            {showGroupForm && (
-  <button
-    className="text-danger"
-    onClick={(e) => {
-      e.stopPropagation();
-      removeGroup(group.id);
-    }}
-  >
-    Delete
-  </button>
+{showGroupForm && (
+  <div className="btn-group">
+    <button
+      className="secondary-btn-sm"
+      onClick={(e) => {
+        e.stopPropagation();
+        editGroup(group);
+      }}
+    >
+      Edit
+    </button>
+
+    <button
+      className="text-danger"
+      onClick={(e) => {
+        e.stopPropagation();
+        removeGroup(group.id);
+      }}
+    >
+      Delete
+    </button>
+  </div>
 )}
           </div>
         ))}
