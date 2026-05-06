@@ -3,6 +3,7 @@ import { initializeApp } from "firebase/app";
 
 // Import Firestore (THIS is what your app uses)
 import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 // Your Firebase config (keep as it is)
 const firebaseConfig = {
@@ -20,3 +21,4 @@ const app = initializeApp(firebaseConfig);
 
 // ✅ THIS is what your App.js needs
 export const db = getFirestore(app);
+export const auth = getAuth(app);

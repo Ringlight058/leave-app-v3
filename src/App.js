@@ -6,6 +6,14 @@ import { collection, addDoc, getDocs, deleteDoc, doc, getDoc, setDoc } from "fir
 import noticeImg from "./assets/notice1.png";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { auth } from "./firebase";
+import {
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut,
+  GoogleAuthProvider,
+  signInWithPopup
+} from "firebase/auth";
 
 const months = [
   "January", "February", "March", "April", "May", "June",
@@ -66,6 +74,53 @@ function App() {
   const [vagutheeSearch, setVagutheeSearch] = useState("");
   const [showGroupForm, setShowGroupForm] = useState(true);
   const [editingGroupId, setEditingGroupId] = useState(null);
+  const [user, setUser] = useState(null);
+  useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    setUser(currentUser);
+  });
+
+  return () => unsubscribe();
+}, []);
+
+const handleLogin = async (e) => {
+  e.preventDefault();
+  setLoginError("");
+  setLoginLoading(true);
+
+  try {
+    await signInWithEmailAndPassword(
+      auth,
+      loginForm.email,
+      loginForm.password
+    );
+  } catch (error) {
+    setLoginError("Invalid login details. Please try again.");
+  } finally {
+    setLoginLoading(false);
+  }
+};
+
+const handleLogout = async () => {
+  await signOut(auth);
+};
+const provider = new GoogleAuthProvider();
+
+const handleGoogleLogin = async () => {
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (error) {
+    console.log(error);
+    alert("Google sign in failed.");
+  }
+};
+  const [loginForm, setLoginForm] = useState({
+  email: "",
+  password: ""
+});
+
+const [loginError, setLoginError] = useState("");
+const [loginLoading, setLoginLoading] = useState(false);
 
 const generateStaffGroupsPDF = async () => {
   const groupSnap = await getDocs(collection(db, "staffGroups"));
@@ -1317,6 +1372,53 @@ const isStaffOnLeaveToday = (staffName) => {
   );
 };
 
+if (!user) {
+  return (
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-logo">
+          <img src={logo} alt="Funadhoo Council Logo" />
+        </div>
+
+        <h1>Funadhoo Council</h1>
+        <p>Leave Management System</p>
+
+        <form onSubmit={handleLogin} className="login-form">
+          <input
+            type="email"
+            placeholder="Email"
+            value={loginForm.email}
+            onChange={(e) =>
+              setLoginForm({ ...loginForm, email: e.target.value })
+            }
+          />
+
+          <input
+            type="password"
+            placeholder="Password"
+            value={loginForm.password}
+            onChange={(e) =>
+              setLoginForm({ ...loginForm, password: e.target.value })
+            }
+          />
+
+          {loginError && <div className="login-error">{loginError}</div>}
+
+          <button type="submit" disabled={loginLoading}>
+            {loginLoading ? "Signing in..." : "Login"}
+          </button>
+<button
+  type="button"
+  className="google-login-btn"
+  onClick={handleGoogleLogin}
+>
+  Sign in with Google
+</button>
+        </form>
+      </div>
+    </div>
+  );
+}
 return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" : ""}`}>
       {/* Sidebar Overlay */}
       <div className="sidebar-overlay" onClick={() => setIsSidebarOpen(false)}></div>
@@ -1366,7 +1468,12 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
         <header className="main-header">
           <button className="burger-btn" onClick={() => setIsSidebarOpen(true)}>☰</button>
           <h1 className="page-title">{activeTab.replace("-", " ").toUpperCase()}</h1>
-          <div className="user-profile">Latest Build: 2026/05/03 10:32</div>
+          <div className="user-profile">
+  <span>Latest Build: 2026/05/03 10:32</span>
+  <button className="logout-btn" onClick={handleLogout}>
+    Logout
+  </button>
+</div>
         </header>
 
         <div className="content-area">
@@ -2987,6 +3094,48 @@ const overlapInfo = getOverlapRange(
   o.end
 );
 
+if (!user) {
+  return (
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-logo">
+          <img src={logo} alt="Funadhoo Council Logo" />
+        </div>
+
+        <h1>Funadhoo Council</h1>
+        <p>Leave Management System</p>
+
+        <form onSubmit={handleLogin} className="login-form">
+          <input
+            type="email"
+            placeholder="Email or username"
+            value={loginForm.email}
+            onChange={(e) =>
+              setLoginForm({ ...loginForm, email: e.target.value })
+            }
+          />
+
+          <input
+            type="password"
+            placeholder="Password"
+            value={loginForm.password}
+            onChange={(e) =>
+              setLoginForm({ ...loginForm, password: e.target.value })
+            }
+          />
+
+          {loginError && <div className="login-error">{loginError}</div>}
+
+          <button type="submit" disabled={loginLoading}>
+            {loginLoading ? "Signing in..." : "Login"}
+          </button>
+        </form>
+
+        <small>Authorized access only</small>
+      </div>
+    </div>
+  );
+}
   return (
     <li key={o.id} className="overlap-item-row">
       <div>
