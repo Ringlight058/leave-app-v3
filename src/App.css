@@ -1017,3 +1017,49 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
 .google-login-btn:hover {
   background: #eff6ff;
 }
+.selected-date-panel {
+  animation: selectedDateSlide 0.28s ease-out;
+  transform-origin: top;
+}
+
+@keyframes selectedDateSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scaleY(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+.selected-date-panel {
+  animation: selectedDateOpen 0.26s ease-out forwards;
+  transform-origin: top;
+}
+
+.selected-date-panel.closing {
+  animation: selectedDateClose 0.26s ease-in forwards;
+}
+
+@keyframes selectedDateOpen {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scaleY(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+@keyframes selectedDateClose {
+  from {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scaleY(0.96);
+  }
+}

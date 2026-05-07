@@ -427,6 +427,7 @@ const [hukuruRecord, setHukuruRecord] = useState({
   const [settings] = useState({ excludeFriday: true, excludeSaturday: true });
   const [publicHolidays, setPublicHolidays] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [isDatePanelClosing, setIsDatePanelClosing] = useState(false);
   const [leaveCheckDate, setLeaveCheckDate] = useState(
   new Date().toISOString().split("T")[0]
 );
@@ -518,7 +519,19 @@ useEffect(() => {
     () => new Set(publicHolidays.map((h) => h.date)),
     [publicHolidays]
   );
+const handleCalendarDateClick = (dateStr) => {
+  if (selectedDate === dateStr) {
+    setIsDatePanelClosing(true);
 
+    setTimeout(() => {
+      setSelectedDate(null);
+      setIsDatePanelClosing(false);
+    }, 260);
+  } else {
+    setSelectedDate(dateStr);
+    setIsDatePanelClosing(false);
+  }
+};
 const renderCalendarDays = () => {
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -549,7 +562,7 @@ const renderCalendarDays = () => {
       <div
         key={dateStr}
         className={className}
-        onClick={() => setSelectedDate(dateStr)}
+        onClick={() => handleCalendarDateClick(dateStr)}
         style={{ cursor: "pointer" }}
       >
         {d}
@@ -1512,7 +1525,7 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
 
   {/* ✅ IMPORTANT: KEEP THIS INSIDE SECTION */}
   {selectedDate && (
-    <div className="selected-date-panel">
+    <div className={`selected-date-panel ${isDatePanelClosing ? "closing" : ""}`}>
       <h3>Leaves on {selectedDate}</h3>
 
       {employeesOnSelectedDate.length > 0 ? (
