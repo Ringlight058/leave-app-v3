@@ -439,14 +439,17 @@ const [yaumiyyaForm, setYaumiyyaForm] = useState({
   annualLeave: "",
   familyLeave: "",
   sickLeaveMC: "",
-  sickLeaveNoMC: ""
+  sickLeaveNoMC: "",
+  customLeave: ""
 });
 
 const [yaumiyyaRecord, setYaumiyyaRecord] = useState({
   annualLeave: [],
   familyLeave: [],
   sickLeaveMC: [],
-  sickLeaveNoMC: []
+  sickLeaveNoMC: [],
+  customLeaveTitle: "Other Leave",
+  customLeave: []
 });
 
   const [empForm, setEmpForm] = useState({ name: "", designation: "", section: "", supervisor: "" });
@@ -825,10 +828,12 @@ const loadYaumiyya = async (date) => {
 
     if (snap.exists()) {
       setYaumiyyaRecord({
-  annualLeave: snap.data().annualLeave || [],
-  familyLeave: snap.data().familyLeave || [],
-  sickLeaveMC: snap.data().sickLeaveMC || [],
-  sickLeaveNoMC: snap.data().sickLeaveNoMC || []
+  annualLeave: [],
+  familyLeave: [],
+  sickLeaveMC: [],
+  sickLeaveNoMC: [],
+  customLeaveTitle: "Other Leave",
+  customLeave: []
 });
     } else {
       setYaumiyyaRecord({
@@ -861,6 +866,15 @@ const saveYaumiyyaRecord = async (nextRecord) => {
     console.error("Error saving Yaumiyya:", error);
     alert("Could not save Yaumiyya record.");
   }
+};
+const updateCustomLeaveTitle = async (title) => {
+  const nextRecord = {
+    ...yaumiyyaRecord,
+    customLeaveTitle: title
+  };
+
+  setYaumiyyaRecord(nextRecord);
+  await saveYaumiyyaRecord(nextRecord);
 };
 
 const addYaumiyyaStaff = async (type) => {
@@ -1656,6 +1670,25 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
     </div>
   )}
 </div>
+{yaumiyyaRecord.customLeave?.length > 0 && (
+  <section className="panel">
+    <h2>{yaumiyyaRecord.customLeaveTitle || "Other Leave"}</h2>
+
+    <div
+      className="closest-list mt-2"
+      style={{
+        maxHeight: "none",
+        overflowY: "visible"
+      }}
+    >
+      {yaumiyyaRecord.customLeave.map((name) => (
+        <div key={`custom-${name}`} className="closest-item">
+          <strong>{name}</strong>
+        </div>
+      ))}
+    </div>
+  </section>
+)}
 
             </div>
           )}
@@ -2566,10 +2599,27 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
   { key: "annualLeave", title: "Annual Leave" },
   { key: "familyLeave", title: "Family Leave" },
   { key: "sickLeaveMC", title: "Sick Leave (With MC)" },
-  { key: "sickLeaveNoMC", title: "Sick Leave (Without MC)" }
+  { key: "sickLeaveNoMC", title: "Sick Leave (Without MC)" },
+  { key: "customLeave", title: yaumiyyaRecord.customLeaveTitle || "Other Leave", editableTitle: true }
 ].map((category) => (
     <section className="panel" key={category.key}>
-      <h2>{category.title}</h2>
+      {category.editableTitle ? (
+  <input
+    type="text"
+    value={yaumiyyaRecord.customLeaveTitle}
+    onChange={(e) => updateCustomLeaveTitle(e.target.value)}
+    placeholder="Enter leave type name"
+    style={{
+      fontSize: "1.2rem",
+      fontWeight: "700",
+      border: "1px solid #cbd5e1",
+      borderRadius: "10px",
+      padding: "10px"
+    }}
+  />
+) : (
+  <h2>{category.title}</h2>
+)}
 
 {showYaumiyyaEditor && (
       <div className="form-stack">
