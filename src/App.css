@@ -1063,3 +1063,38 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
     transform: translateY(-8px) scaleY(0.96);
   }
 }
+.attendance-clock {
+  text-align: center;
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  margin: 20px 0 8px;
+}
+
+.attendance-clock.good-time {
+  color: #16a34a;
+}
+
+.attendance-clock.normal-time {
+  color: #111827;
+}
+
+.attendance-clock.late-time {
+  color: #dc2626;
+  animation: attendanceFlash 0.8s infinite;
+}
+
+.late-badge {
+  background: #fee2e2;
+  color: #991b1b;
+  border: none;
+}
+
+@keyframes attendanceFlash {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}

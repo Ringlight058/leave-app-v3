@@ -458,6 +458,24 @@ const [yaumiyyaRecord, setYaumiyyaRecord] = useState({
   const [dirFilter, setDirFilter] = useState({ section: "", supervisor: "" });
 
   const [isLoading, setIsLoading] = useState(false); 
+  const [attendanceDate, setAttendanceDate] = useState(
+  new Date().toLocaleDateString("en-CA", { timeZone: "Indian/Maldives" })
+);
+
+const [attendanceClock, setAttendanceClock] = useState("");
+const [attendanceStaff, setAttendanceStaff] = useState("");
+const [attendanceRecord, setAttendanceRecord] = useState({});
+const [attendanceSettingsUnlocked, setAttendanceSettingsUnlocked] = useState(false);
+const [attendanceSettingsPassword, setAttendanceSettingsPassword] = useState("");
+
+const [attendanceSettings, setAttendanceSettings] = useState({
+  defaultCheckInOpen: "07:30",
+  defaultLateAfter: "08:00",
+  defaultDutyEnd: "14:00",
+  defaultCheckOutOpen: "13:55",
+  defaultCheckOutClose: "14:55",
+  staffTimes: {}
+});
 useEffect(() => {
   const fadeTimer = setTimeout(() => {
     setFadeNotice(true); // start fade
@@ -503,11 +521,310 @@ useEffect(() => {
   useEffect(() => {
   refreshData();
 }, []);
+useEffect(() => {
+  setAttendanceClock(getFunadhooTime());
+
+  const timer = setInterval(() => {
+    setAttendanceClock(getFunadhooTime());
+
+    const today = getFunadhooDate();
+    setAttendanceDate((prev) => prev || today);
+  }, 1000);
+
+  return () => clearInterval(timer);
+}, []);
+
+useEffect(() => {
+  loadAttendance(attendanceDate);
+}, [attendanceDate]);
+useEffect(() => {
+  loadAttendanceSettings();
+}, []);
 
   const closeSidebarAndGo = (tab) => {
     setActiveTab(tab);
     setIsSidebarOpen(false);
   };
+const getFunadhooTime = () => {
+  return new Date().toLocaleTimeString("en-GB", {
+    timeZone: "Indian/Maldives",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  });
+};
+const loadAttendanceSettings = async () => {
+  try {
+    const ref = doc(db, "attendanceSettings", "main");
+    const snap = await getDoc(ref);
+
+    if (snap.exists()) {
+      setAttendanceSettings({
+        defaultCheckInOpen: snap.data().defaultCheckInOpen || snap.data().globalCheckInOpen || "07:30",
+        defaultLateAfter: snap.data().defaultLateAfter || "08:00",
+        defaultDutyEnd: snap.data().defaultDutyEnd || "14:00",
+        defaultCheckOutOpen: snap.data().defaultCheckOutOpen || snap.data().globalCheckOutOpen || "13:55",
+        defaultCheckOutClose: snap.data().defaultCheckOutClose || snap.data().globalCheckOutClose || "14:55",
+        staffTimes: snap.data().staffTimes || {}
+      });
+    }
+  } catch (error) {
+    console.error("Error loading attendance settings:", error);
+  }
+};
+
+const saveAttendanceSettings = async () => {
+  try {
+    await setDoc(doc(db, "attendanceSettings", "main"), attendanceSettings);
+    alert("Attendance settings saved.");
+  } catch (error) {
+    console.error("Error saving attendance settings:", error);
+    alert("Could not save attendance settings.");
+  }
+};
+const getStaffAttendanceRule = (staffName) => {
+  const staffRule = attendanceSettings.staffTimes?.[staffName] || {};
+
+  return {
+    checkInOpen:
+      staffRule.checkInOpen ||
+      attendanceSettings.defaultCheckInOpen ||
+      "07:30",
+
+    lateAfter:
+      staffRule.lateAfter ||
+      staffRule.checkIn ||
+      attendanceSettings.defaultLateAfter ||
+      "08:00",
+
+    dutyEnd:
+      staffRule.dutyEnd ||
+      staffRule.checkOut ||
+      attendanceSettings.defaultDutyEnd ||
+      "14:00",
+
+    checkOutOpen:
+      staffRule.checkOutOpen ||
+      attendanceSettings.defaultCheckOutOpen ||
+      "13:55",
+
+    checkOutClose:
+      staffRule.checkOutClose ||
+      attendanceSettings.defaultCheckOutClose ||
+      "14:55"
+  };
+};
+
+const getAttendanceActionType = (staffName) => {
+  if (!staffName) return "checkIn";
+
+  const existing = attendanceRecord[staffName];
+
+  if (existing?.checkIn && !existing?.checkOut) {
+    return "checkOut";
+  }
+
+  return "checkIn";
+};
+
+const updateStaffDutyTime = (staffName, field, value) => {
+  setAttendanceSettings((prev) => ({
+    ...prev,
+    staffTimes: {
+      ...prev.staffTimes,
+      [staffName]: {
+        checkInOpen:
+          prev.staffTimes?.[staffName]?.checkInOpen ||
+          prev.defaultCheckInOpen ||
+          "07:30",
+
+        lateAfter:
+          prev.staffTimes?.[staffName]?.lateAfter ||
+          prev.staffTimes?.[staffName]?.checkIn ||
+          prev.defaultLateAfter ||
+          "08:00",
+
+        dutyEnd:
+          prev.staffTimes?.[staffName]?.dutyEnd ||
+          prev.staffTimes?.[staffName]?.checkOut ||
+          prev.defaultDutyEnd ||
+          "14:00",
+
+        checkOutOpen:
+          prev.staffTimes?.[staffName]?.checkOutOpen ||
+          prev.defaultCheckOutOpen ||
+          "13:55",
+
+        checkOutClose:
+          prev.staffTimes?.[staffName]?.checkOutClose ||
+          prev.defaultCheckOutClose ||
+          "14:55",
+
+        ...prev.staffTimes?.[staffName],
+        [field]: value
+      }
+    }
+  }));
+};
+
+const isAttendanceSaveAllowed = () => {
+  if (!attendanceStaff) return true;
+
+  const current = attendanceClock.slice(0, 5);
+  const currentMin = timeToMinutes(current);
+
+  const rule = getStaffAttendanceRule(attendanceStaff);
+  const actionType = getAttendanceActionType(attendanceStaff);
+
+  if (actionType === "checkIn") {
+    return (
+      currentMin >= timeToMinutes(rule.checkInOpen) &&
+      currentMin <= timeToMinutes(rule.lateAfter) + 20
+    );
+  }
+
+  return (
+    currentMin >= timeToMinutes(rule.checkOutOpen) &&
+    currentMin <= timeToMinutes(rule.checkOutClose)
+  );
+};
+
+const getAttendanceClosedMessage = () => {
+  if (!attendanceStaff) {
+    return "Please select a staff member to check their attendance window.";
+  }
+
+  const rule = getStaffAttendanceRule(attendanceStaff);
+  const actionType = getAttendanceActionType(attendanceStaff);
+
+  if (actionType === "checkIn") {
+    return `Check-in for ${attendanceStaff} is open from ${rule.checkInOpen} to ${rule.lateAfter} and late check-in is allowed until ${
+      Math.floor((timeToMinutes(rule.lateAfter) + 20) / 60)
+        .toString()
+        .padStart(2, "0")
+    }:${((timeToMinutes(rule.lateAfter) + 20) % 60)
+      .toString()
+      .padStart(2, "0")}.`;
+  }
+
+  return `Check-out for ${attendanceStaff} is open from ${rule.checkOutOpen} to ${rule.checkOutClose}.`;
+};
+
+const getFunadhooDate = () => {
+  return new Date().toLocaleDateString("en-CA", {
+    timeZone: "Indian/Maldives"
+  });
+};
+
+const timeToMinutes = (time) => {
+  if (!time) return 0;
+  const [hour, minute] = time.split(":").map(Number);
+  return hour * 60 + minute;
+};
+
+const getLateMinutes = (checkIn, staffName) => {
+  if (!checkIn) return "";
+
+  const rule = getStaffAttendanceRule(staffName);
+  const minutes = timeToMinutes(checkIn);
+  const lateAfter = timeToMinutes(rule.lateAfter);
+
+  if (minutes <= lateAfter) return "";
+
+  return `${minutes - lateAfter} min late`;
+};
+const getClockClass = () => {
+  const current = attendanceClock.slice(0, 5);
+  const minutes = timeToMinutes(current);
+
+  const selectedRule = attendanceStaff
+    ? getStaffAttendanceRule(attendanceStaff)
+    : {
+        checkInOpen: attendanceSettings.defaultCheckInOpen,
+        lateAfter: attendanceSettings.defaultLateAfter,
+        checkOutOpen: attendanceSettings.defaultCheckOutOpen,
+        checkOutClose: attendanceSettings.defaultCheckOutClose
+      };
+
+  const checkInOpen = timeToMinutes(selectedRule.checkInOpen);
+  const lateAfter = timeToMinutes(selectedRule.lateAfter);
+  const lateClose = lateAfter + 20;
+  const checkOutOpen = timeToMinutes(selectedRule.checkOutOpen);
+  const checkOutClose = timeToMinutes(selectedRule.checkOutClose);
+
+  if (
+    (minutes >= checkInOpen && minutes <= lateAfter) ||
+    (minutes >= checkOutOpen && minutes <= checkOutClose)
+  ) {
+    return "attendance-clock good-time";
+  }
+
+  if (minutes > lateAfter && minutes <= lateClose) {
+    return "attendance-clock late-time";
+  }
+
+  return "attendance-clock normal-time";
+};
+const loadAttendance = async (date) => {
+  try {
+    const ref = doc(db, "attendance", date);
+    const snap = await getDoc(ref);
+
+    if (snap.exists()) {
+      setAttendanceRecord(snap.data().records || {});
+    } else {
+      setAttendanceRecord({});
+    }
+  } catch (error) {
+    console.error("Error loading attendance:", error);
+    alert("Could not load attendance.");
+  }
+};
+
+const saveAttendance = async () => {
+  if (!attendanceStaff) return alert("Please select a staff member.");
+  if (!isAttendanceSaveAllowed()) {
+  return alert(getAttendanceClosedMessage());
+}
+
+  const today = getFunadhooDate();
+
+  if (attendanceDate !== today) {
+    return alert("Attendance can only be marked for today's date.");
+  }
+
+  const currentTime = getFunadhooTime().slice(0, 5);
+
+  const existing = attendanceRecord[attendanceStaff] || {
+    checkIn: "",
+    checkOut: ""
+  };
+
+  const updatedStaffRecord = existing.checkIn
+    ? { ...existing, checkOut: currentTime }
+    : { ...existing, checkIn: currentTime };
+
+  const nextRecord = {
+    ...attendanceRecord,
+    [attendanceStaff]: updatedStaffRecord
+  };
+
+  try {
+    await setDoc(doc(db, "attendance", attendanceDate), {
+      date: attendanceDate,
+      records: nextRecord
+    });
+
+    setAttendanceRecord(nextRecord);
+    setAttendanceStaff("");
+
+    alert(existing.checkIn ? "Check-out saved." : "Check-in saved.");
+  } catch (error) {
+    console.error("Error saving attendance:", error);
+    alert("Could not save attendance.");
+  }
+};
 
   // --- LOGIC ---
   const closestLeaves = useMemo(() => {
@@ -828,20 +1145,22 @@ const loadYaumiyya = async (date) => {
 
     if (snap.exists()) {
       setYaumiyyaRecord({
-  annualLeave: [],
-  familyLeave: [],
-  sickLeaveMC: [],
-  sickLeaveNoMC: [],
-  customLeaveTitle: "Other Leave",
-  customLeave: []
-});
+        annualLeave: snap.data().annualLeave || [],
+        familyLeave: snap.data().familyLeave || [],
+        sickLeaveMC: snap.data().sickLeaveMC || [],
+        sickLeaveNoMC: snap.data().sickLeaveNoMC || [],
+        customLeaveTitle: snap.data().customLeaveTitle || "Other Leave",
+        customLeave: snap.data().customLeave || []
+      });
     } else {
       setYaumiyyaRecord({
-  annualLeave: [],
-  familyLeave: [],
-  sickLeaveMC: [],
-  sickLeaveNoMC: []
-});
+        annualLeave: [],
+        familyLeave: [],
+        sickLeaveMC: [],
+        sickLeaveNoMC: [],
+        customLeaveTitle: "Other Leave",
+        customLeave: []
+      });
     }
   } catch (error) {
     console.error("Error loading Yaumiyya:", error);
@@ -1475,6 +1794,18 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
 </li>
           <li className={activeTab === "hukuru-2026" ? "active" : ""} onClick={() => closeSidebarAndGo("hukuru-2026")}>Hukuru 2026</li>
           <li className="nav-label">Administration</li>
+          <li
+  className={activeTab === "attendance" ? "active" : ""}
+  onClick={() => closeSidebarAndGo("attendance")}
+>
+  Attendance
+</li>
+<li
+  className={activeTab === "attendance-settings" ? "active" : ""}
+  onClick={() => closeSidebarAndGo("attendance-settings")}
+>
+  Attendance Settings
+</li>
 <li
   className={activeTab === "groups" ? "active" : ""}
   onClick={() => closeSidebarAndGo("groups")}
@@ -2290,7 +2621,7 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
 
         {randomHukuruSelection.length === 0 && (
           <tr>
-            <td colSpan="3" className="muted text-center">
+            <td colSpan="6" className="muted text-center">
               No random selection generated yet.
             </td>
           </tr>
@@ -2500,6 +2831,326 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
     )}
   </section>
 </div>
+  </div>
+)}
+{/* ATTENDANCE TAB */}
+{activeTab === "attendance" && (
+  <div className="panel full-width">
+    <div className="table-header">
+      <div>
+        <h2>Attendance</h2>
+        <p className="muted">Daily staff check-in and check-out record.</p>
+      </div>
+
+      <div className="filter-group">
+        <input
+          type="date"
+          value={attendanceDate}
+          onChange={(e) => setAttendanceDate(e.target.value)}
+        />
+
+        <button className="refresh-btn" onClick={() => loadAttendance(attendanceDate)}>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <div className="panel mt-4">
+      <div className={getClockClass()}>
+        {attendanceClock}
+      </div>
+
+      <p className="muted text-center">
+        Current time at Sh. Funadhoo, Maldives
+      </p>
+
+      <div className="form-stack mt-4" style={{ maxWidth: "420px" }}>
+        <select
+          value={attendanceStaff}
+          onChange={(e) => setAttendanceStaff(e.target.value)}
+        >
+          <option value="">Select staff</option>
+          {employees.map((emp) => (
+            <option key={emp.id} value={emp.name}>
+              {emp.name}
+            </option>
+          ))}
+        </select>
+
+        <button
+  className="primary-btn"
+  onClick={saveAttendance}
+  disabled={!isAttendanceSaveAllowed()}
+>
+  {isAttendanceSaveAllowed() ? "Save Attendance" : "Attendance Closed"}
+</button>
+
+{!isAttendanceSaveAllowed() && (
+  <p className="muted text-center">
+    {getAttendanceClosedMessage()}
+  </p>
+)}
+      </div>
+    </div>
+
+    <div className="table-container mt-4">
+      <table className="modern-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Check In</th>
+            <th>Check Out</th>
+            <th>Late</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {employees.map((emp) => {
+            const record = attendanceRecord[emp.name] || {};
+            const late = getLateMinutes(record.checkIn, emp.name);
+
+            return (
+              <tr key={emp.id}>
+                <td><strong>{emp.name}</strong></td>
+                <td>{record.checkIn || "—"}</td>
+                <td>{record.checkOut || "—"}</td>
+                <td>
+                  {late ? (
+                    <span className="badge late-badge">{late}</span>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+
+          {employees.length === 0 && (
+            <tr>
+              <td colSpan="4" className="muted text-center">
+                No staff found in directory.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
+{/* ATTENDANCE SETTINGS TAB */}
+{activeTab === "attendance-settings" && (
+  <div className="panel full-width">
+    {!attendanceSettingsUnlocked ? (
+      <div className="form-stack" style={{ maxWidth: "400px" }}>
+        <h2>Attendance Settings Access</h2>
+        <p className="muted">Enter admin password to manage duty times.</p>
+
+        <input
+          type="password"
+          placeholder="Enter password"
+          value={attendanceSettingsPassword}
+          onChange={(e) => setAttendanceSettingsPassword(e.target.value)}
+        />
+
+        <button
+          className="primary-btn"
+          onClick={() => {
+            if (attendanceSettingsPassword === "Admin@123") {
+              setAttendanceSettingsUnlocked(true);
+              setAttendanceSettingsPassword("");
+            } else {
+              alert("Incorrect password.");
+            }
+          }}
+        >
+          Unlock Settings
+        </button>
+      </div>
+    ) : (
+      <div>
+        <div className="table-header">
+          <div>
+            <h2>Attendance Settings</h2>
+            <p className="muted">
+              Set allowed attendance windows and individual staff duty times.
+            </p>
+          </div>
+
+          <button className="primary-btn-sm" onClick={saveAttendanceSettings}>
+            Save Settings
+          </button>
+        </div>
+
+        <div className="admin-grid mt-4">
+          <section className="panel">
+            <h2>Default Check-In Rules</h2>
+
+            <div className="form-stack">
+              <label>
+                Check-In Opens
+                <input
+                  type="time"
+                  value={attendanceSettings.defaultCheckInOpen}
+                  onChange={(e) =>
+                    setAttendanceSettings({
+                      ...attendanceSettings,
+                      defaultCheckInOpen: e.target.value
+                    })
+                  }
+                />
+              </label>
+
+              <label>
+                Late After
+                <input
+                  type="time"
+                  value={attendanceSettings.defaultLateAfter}
+                  onChange={(e) =>
+                    setAttendanceSettings({
+                      ...attendanceSettings,
+                      defaultLateAfter: e.target.value
+                    })
+                  }
+                />
+              </label>
+
+              <label>
+                Duty Ends
+                <input
+                  type="time"
+                  value={attendanceSettings.defaultDutyEnd}
+                  onChange={(e) =>
+                    setAttendanceSettings({
+                      ...attendanceSettings,
+                      defaultDutyEnd: e.target.value
+                    })
+                  }
+                />
+              </label>
+            </div>
+          </section>
+
+          <section className="panel">
+            <h2>Default Check-Out Rules</h2>
+
+            <div className="form-stack">
+              <label>
+                Check-Out Opens
+                <input
+                  type="time"
+                  value={attendanceSettings.defaultCheckOutOpen}
+                  onChange={(e) =>
+                    setAttendanceSettings({
+                      ...attendanceSettings,
+                      defaultCheckOutOpen: e.target.value
+                    })
+                  }
+                />
+              </label>
+
+              <label>
+                Check-Out Closes
+                <input
+                  type="time"
+                  value={attendanceSettings.defaultCheckOutClose}
+                  onChange={(e) =>
+                    setAttendanceSettings({
+                      ...attendanceSettings,
+                      defaultCheckOutClose: e.target.value
+                    })
+                  }
+                />
+              </label>
+            </div>
+          </section>
+        </div>
+
+        <div className="table-container mt-4">
+          <table className="modern-table">
+            <thead>
+              <tr>
+                <th>Staff Name</th>
+                <th>Check-In Opens</th>
+                <th>Late After</th>
+                <th>Duty Ends</th>
+                <th>Check-Out Opens</th>
+                <th>Check-Out Closes</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {employees.map((emp) => {
+                const rule = getStaffAttendanceRule(emp.name);
+
+                return (
+                  <tr key={emp.id}>
+                    <td><strong>{emp.name}</strong></td>
+
+                    <td>
+                      <input
+                        type="time"
+                        value={rule.checkInOpen}
+                        onChange={(e) =>
+                          updateStaffDutyTime(emp.name, "checkInOpen", e.target.value)
+                        }
+                      />
+                    </td>
+
+                    <td>
+                      <input
+                        type="time"
+                        value={rule.lateAfter}
+                        onChange={(e) =>
+                          updateStaffDutyTime(emp.name, "lateAfter", e.target.value)
+                        }
+                      />
+                    </td>
+
+                    <td>
+                      <input
+                        type="time"
+                        value={rule.dutyEnd}
+                        onChange={(e) =>
+                          updateStaffDutyTime(emp.name, "dutyEnd", e.target.value)
+                        }
+                      />
+                    </td>
+
+                    <td>
+                      <input
+                        type="time"
+                        value={rule.checkOutOpen}
+                        onChange={(e) =>
+                          updateStaffDutyTime(emp.name, "checkOutOpen", e.target.value)
+                        }
+                      />
+                    </td>
+
+                    <td>
+                      <input
+                        type="time"
+                        value={rule.checkOutClose}
+                        onChange={(e) =>
+                          updateStaffDutyTime(emp.name, "checkOutClose", e.target.value)
+                        }
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {employees.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="muted text-center">
+                    No staff found in directory.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )}
   </div>
 )}
 {/* LEAVE TREND TAB */}
