@@ -1,6 +1,7 @@
 import logo from "./assets/logo1.png";
 import React, { useEffect, useMemo, useState } from "react";
 import "./App.css";
+import { animate, stagger } from "animejs";
 import { db } from "./firebase";
 import { collection, addDoc, getDocs, deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
 import noticeImg from "./assets/notice1.png";
@@ -540,8 +541,17 @@ useEffect(() => {
 useEffect(() => {
   loadAttendanceSettings();
 }, []);
-
-  const closeSidebarAndGo = (tab) => {
+useEffect(() => {
+  if (isSidebarOpen) {
+    animate(".nav-menu li", {
+      translateX: [-18, 0],
+      opacity: [0, 1],
+      delay: stagger(35),
+      duration: 450,
+      easing: "outExpo"
+    });
+  }
+}, [isSidebarOpen]);const closeSidebarAndGo = (tab) => {
     setActiveTab(tab);
     setIsSidebarOpen(false);
   };
@@ -554,6 +564,15 @@ const getFunadhooTime = () => {
     hour12: false
   });
 };
+useEffect(() => {
+  animate(".content-area .panel", {
+    opacity: [0, 1],
+    translateY: [18, 0],
+    duration: 500,
+    delay: stagger(60),
+    easing: "outExpo"
+  });
+}, [activeTab]);
 const loadAttendanceSettings = async () => {
   try {
     const ref = doc(db, "attendanceSettings", "main");

@@ -1098,3 +1098,11 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
     opacity: 0.35;
   }
 }
+.sidebar,
+.nav-menu li,
+.sidebar-overlay {
+  will-change: transform, opacity;
+}
+.content-area .panel {
+  will-change: transform, opacity;
+}
