@@ -893,9 +893,13 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
   align-items: center;
   justify-content: center;
   padding: 24px;
+  overflow: hidden;
+  position: relative;
 }
 
 .login-card {
+  animation: loginCardEnter 0.8s ease-out;
+  backdrop-filter: blur(12px);
   width: 100%;
   max-width: 420px;
   background: rgba(255, 255, 255, 0.96);
@@ -907,6 +911,7 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
 }
 
 .login-logo {
+  animation: logoFloat 4s ease-in-out infinite;
   width: 86px;
   height: 86px;
   margin: 0 auto 18px;
@@ -1022,6 +1027,70 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
   transform-origin: top;
 }
 
+.login-page::before {
+  content: "";
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 50%;
+  top: -120px;
+  left: -120px;
+  animation: blobMove 14s ease-in-out infinite;
+}
+
+.login-page::after {
+  content: "";
+  position: absolute;
+  width: 340px;
+  height: 340px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 50%;
+  bottom: -120px;
+  right: -100px;
+  animation: blobMove2 16s ease-in-out infinite;
+}
+@keyframes loginCardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes logoFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes blobMove {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(40px, 20px);
+  }
+}
+
+@keyframes blobMove2 {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(-35px, -25px);
+  }
+}
 @keyframes selectedDateSlide {
   from {
     opacity: 0;
@@ -1036,6 +1105,7 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
 .selected-date-panel {
   animation: selectedDateOpen 0.26s ease-out forwards;
   transform-origin: top;
+  will-change: transform, opacity;
 }
 
 .selected-date-panel.closing {
@@ -1073,6 +1143,8 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
 
 .attendance-clock.good-time {
   color: #16a34a;
+  animation: attendancePulse 2s ease-in-out infinite;
+  text-shadow: 0 0 14px rgba(22, 163, 74, 0.25);
 }
 
 .attendance-clock.normal-time {
@@ -1081,7 +1153,8 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
 
 .attendance-clock.late-time {
   color: #dc2626;
-  animation: attendanceFlash 0.8s infinite;
+  animation: attendanceFlash 0.9s ease-in-out infinite;
+  text-shadow: 0 0 18px rgba(220, 38, 38, 0.35);
 }
 
 .late-badge {
@@ -1105,4 +1178,15 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
 }
 .content-area .panel {
   will-change: transform, opacity;
+}
+@keyframes attendancePulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.03);
+    opacity: 0.92;
+  }
 }

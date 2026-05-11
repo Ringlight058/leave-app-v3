@@ -573,6 +573,17 @@ useEffect(() => {
     easing: "outExpo"
   });
 }, [activeTab]);
+useEffect(() => {
+  if (selectedDate && !isDatePanelClosing) {
+    animate(".selected-date-panel", {
+      opacity: [0, 1],
+      translateY: [-8, 0],
+      scale: [0.98, 1],
+      duration: 420,
+      easing: "outExpo"
+    });
+  }
+}, [selectedDate, isDatePanelClosing]);
 const loadAttendanceSettings = async () => {
   try {
     const ref = doc(db, "attendanceSettings", "main");
