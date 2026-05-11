@@ -1718,6 +1718,13 @@ const isStaffOnLeaveToday = (staffName) => {
   );
 };
 
+const getEmployeeDisplayName = (staffName) => {
+  const emp = employees.find((e) => e.name === staffName);
+
+  return emp?.designation
+    ? `${staffName} (${emp.designation})`
+    : staffName;
+};
 if (!user) {
   return (
     <div className="login-page">
@@ -1917,7 +1924,7 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
     type="button"
     onClick={() => setShowSalaamFRL(!showSalaamFRL)}
   >
-    {showSalaamFRL ? "Hide Salaam/FRL" : "Show Salaam/FRL"}
+    {showSalaamFRL ? "Hide Daily leaves" : "Show Daily Leaves"}
   </button>
 
   {showSalaamFRL && (
@@ -1934,7 +1941,7 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
     <div className="closest-list mt-2">
       {yaumiyyaRecord.annualLeave.map((name) => (
         <div key={`annual-${name}`} className="closest-item">
-          <strong>{name}</strong>
+          <strong>{getEmployeeDisplayName(name)}</strong>
         </div>
       ))}
     </div>
@@ -1953,7 +1960,7 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
 >
             {yaumiyyaRecord.familyLeave.map((name) => (
               <div key={name} className="closest-item">
-                <strong>{name}</strong>
+                <strong>{getEmployeeDisplayName(name)}</strong>
               </div>
             ))}
           </div>
@@ -1972,7 +1979,7 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
 >
             {yaumiyyaRecord.sickLeaveMC.map((name) => (
               <div key={name} className="closest-item">
-                <strong>{name}</strong>
+                <strong>{getEmployeeDisplayName(name)}</strong>
               </div>
             ))}
           </div>
@@ -1991,7 +1998,7 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
 >
             {yaumiyyaRecord.sickLeaveNoMC.map((name) => (
               <div key={name} className="closest-item">
-                <strong>{name}</strong>
+                <strong>{getEmployeeDisplayName(name)}</strong>
               </div>
             ))}
           </div>
@@ -2014,7 +2021,7 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
     >
       {yaumiyyaRecord.customLeave.map((name) => (
         <div key={`custom-${name}`} className="closest-item">
-          <strong>{name}</strong>
+          <strong>{getEmployeeDisplayName(name)}</strong>
         </div>
       ))}
     </div>
@@ -3310,7 +3317,7 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
 >
         {yaumiyyaRecord[category.key].map((staffName) => (
           <div key={staffName} className="closest-item">
-            <strong>{staffName}</strong>
+            <strong>{getEmployeeDisplayName(staffName)}</strong>
 
 {showYaumiyyaEditor && (
   <button
