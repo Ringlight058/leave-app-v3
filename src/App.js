@@ -76,6 +76,29 @@ function App() {
   const [showGroupForm, setShowGroupForm] = useState(true);
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [user, setUser] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [confirmModal, setConfirmModal] = useState(null);
+  const [presencePopup, setPresencePopup] = useState(null);
+
+const showToast = (message, type = "success") => {
+  setToast({ message, type });
+
+  setTimeout(() => {
+    setToast(null);
+  }, 2800);
+};
+const openConfirmModal = ({ title, message, confirmText = "Delete", onConfirm }) => {
+  setConfirmModal({
+    title,
+    message,
+    confirmText,
+    onConfirm
+  });
+};
+
+const closeConfirmModal = () => {
+  setConfirmModal(null);
+};
   useEffect(() => {
   const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
     setUser(currentUser);
@@ -565,15 +588,23 @@ const getFunadhooTime = () => {
   });
 };
 useEffect(() => {
+  animate(".content-area", {
+    opacity: [0.75, 1],
+    filter: ["blur(4px)", "blur(0px)"],
+    translateY: [10, 0],
+    duration: 380,
+    easing: "outExpo"
+  });
+
   animate(".content-area .panel", {
     opacity: [0, 1],
     translateY: [18, 0],
-    duration: 500,
-    delay: stagger(60),
+    scale: [0.985, 1],
+    duration: 520,
+    delay: stagger(55),
     easing: "outExpo"
   });
-}, [activeTab]);
-useEffect(() => {
+}, [activeTab]);useEffect(() => {
   if (selectedDate && !isDatePanelClosing) {
     animate(".selected-date-panel", {
       opacity: [0, 1],
@@ -849,7 +880,7 @@ const saveAttendance = async () => {
     setAttendanceRecord(nextRecord);
     setAttendanceStaff("");
 
-    alert(existing.checkIn ? "Check-out saved." : "Check-in saved.");
+    showToast(existing.checkIn ? "Check-out saved." : "Check-in saved.");
   } catch (error) {
     console.error("Error saving attendance:", error);
     alert("Could not save attendance.");
@@ -1010,16 +1041,24 @@ const closeGroupModal = () => {
   };
 
   // NEW: Delete Employee
-  const removeEmployee = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this employee?")) return;
-    try {
-      if (id) await deleteDoc(doc(db, "employees", id));
-      setEmployees((prev) => prev.filter((item) => item.id !== id));
-    } catch (error) {
-      alert("Could not delete employee record.");
+const removeEmployee = async (id) => {
+  openConfirmModal({
+    title: "Delete Employee",
+    message: "Are you sure you want to delete this employee? This action cannot be undone.",
+    confirmText: "Delete",
+    onConfirm: async () => {
+      try {
+        if (id) await deleteDoc(doc(db, "employees", id));
+        setEmployees((prev) => prev.filter((item) => item.id !== id));
+        showToast("Employee deleted successfully.");
+      } catch (error) {
+        showToast("Could not delete employee record.", "error");
+      } finally {
+        closeConfirmModal();
+      }
     }
-  };
-
+  });
+};
   const saveLeave = async (e) => {
     e.preventDefault();
     if (!leaveForm.employee || !leaveForm.start || !leaveForm.end) {
@@ -1061,15 +1100,24 @@ if (hasOverlap) {
     }
   };
 
-  const removeLeave = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this leave record?")) return;
-    try {
-      if (id) await deleteDoc(doc(db, "leaves", id));
-      setLeaves((prev) => prev.filter((item) => item.id !== id));
-    } catch (error) {
-      alert("Could not delete leave record.");
+const removeLeave = async (id) => {
+  openConfirmModal({
+    title: "Delete Leave Record",
+    message: "Are you sure you want to delete this leave record? This action cannot be undone.",
+    confirmText: "Delete",
+    onConfirm: async () => {
+      try {
+        if (id) await deleteDoc(doc(db, "leaves", id));
+        setLeaves((prev) => prev.filter((item) => item.id !== id));
+        showToast("Leave record deleted successfully.");
+      } catch (error) {
+        showToast("Could not delete leave record.", "error");
+      } finally {
+        closeConfirmModal();
+      }
     }
-  };
+  });
+};
 
   // UPDATED: Save Holiday to Firebase
   const addHoliday = async (e) => {
@@ -1092,15 +1140,24 @@ if (hasOverlap) {
   };
 
   // NEW: Delete Holiday
-  const removeHoliday = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this public holiday?")) return;
-    try {
-      if (id) await deleteDoc(doc(db, "holidays", id));
-      setPublicHolidays((prev) => prev.filter((item) => item.id !== id));
-    } catch (error) {
-      alert("Could not delete holiday record.");
+const removeHoliday = async (id) => {
+  openConfirmModal({
+    title: "Delete Public Holiday",
+    message: "Are you sure you want to delete this public holiday?",
+    confirmText: "Delete",
+    onConfirm: async () => {
+      try {
+        if (id) await deleteDoc(doc(db, "holidays", id));
+        setPublicHolidays((prev) => prev.filter((item) => item.id !== id));
+        showToast("Public holiday deleted successfully.");
+      } catch (error) {
+        showToast("Could not delete holiday record.", "error");
+      } finally {
+        closeConfirmModal();
+      }
     }
-  };
+  });
+};
 const saveGroup = async (e) => {
   e.preventDefault();
 
@@ -1152,13 +1209,22 @@ const saveGroup = async (e) => {
   }
 };
 const removeGroup = async (id) => {
-  if (!window.confirm("Are you sure you want to delete this group?")) return;
-  try {
-    if (id) await deleteDoc(doc(db, "staffGroups", id));
-    setStaffGroups((prev) => prev.filter((item) => item.id !== id));
-  } catch (error) {
-    alert("Could not delete group.");
-  }
+  openConfirmModal({
+    title: "Delete Staff Group",
+    message: "Are you sure you want to delete this staff group?",
+    confirmText: "Delete",
+    onConfirm: async () => {
+      try {
+        if (id) await deleteDoc(doc(db, "staffGroups", id));
+        setStaffGroups((prev) => prev.filter((item) => item.id !== id));
+        showToast("Staff group deleted successfully.");
+      } catch (error) {
+        showToast("Could not delete group.", "error");
+      } finally {
+        closeConfirmModal();
+      }
+    }
+  });
 };
 const editGroup = (group) => {
   setEditingGroupId(group.id);
@@ -1200,7 +1266,12 @@ const loadYaumiyya = async (date) => {
 useEffect(() => {
   loadYaumiyya(yaumiyyaDate);
 }, [yaumiyyaDate]);
+
 useEffect(() => {
+  if (activeTab === "presence-board") {
+    loadYaumiyya(attendanceDate);
+  }
+}, [activeTab, attendanceDate]);useEffect(() => {
   initializeVagutheePeriod();
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []);
@@ -1353,25 +1424,41 @@ const saveVagutheeRecord = async (e) => {
 };
 
 const removeVagutheeRecord = async (id) => {
-  if (!window.confirm("Delete this Vaguthee Imaam record?")) return;
-
-  try {
-    await deleteDoc(doc(db, "vagutheeImaam", id));
-    setVagutheeRecords((prev) => prev.filter((r) => r.id !== id));
-  } catch (error) {
-    alert("Could not delete record.");
-  }
+  openConfirmModal({
+    title: "Delete Vaguthee Imaam Record",
+    message: "Are you sure you want to delete this Vaguthee Imaam record?",
+    confirmText: "Delete",
+    onConfirm: async () => {
+      try {
+        await deleteDoc(doc(db, "vagutheeImaam", id));
+        setVagutheeRecords((prev) => prev.filter((r) => r.id !== id));
+        showToast("Vaguthee Imaam record deleted successfully.");
+      } catch (error) {
+        showToast("Could not delete record.", "error");
+      } finally {
+        closeConfirmModal();
+      }
+    }
+  });
 };
 
 const removeImaam = async (id) => {
-  if (!window.confirm("Are you sure you want to delete this Imaam?")) return;
-
-  try {
-    if (id) await deleteDoc(doc(db, "imaams", id));
-    setImaams((prev) => prev.filter((item) => item.id !== id));
-  } catch (error) {
-    alert("Could not delete Imaam.");
-  }
+  openConfirmModal({
+    title: "Delete Imaam",
+    message: "Are you sure you want to delete this Imaam?",
+    confirmText: "Delete",
+    onConfirm: async () => {
+      try {
+        if (id) await deleteDoc(doc(db, "imaams", id));
+        setImaams((prev) => prev.filter((item) => item.id !== id));
+        showToast("Imaam deleted successfully.");
+      } catch (error) {
+        showToast("Could not delete Imaam.", "error");
+      } finally {
+        closeConfirmModal();
+      }
+    }
+  });
 };
 const saveStatusOption = async (e) => {
   e.preventDefault();
@@ -1396,14 +1483,22 @@ const saveStatusOption = async (e) => {
 };
 
 const removeStatusOption = async (id) => {
-  if (!window.confirm("Delete this status option?")) return;
-
-  try {
-    if (id) await deleteDoc(doc(db, "hukuruStatusOptions", id));
-    setHukuruStatusOptions((prev) => prev.filter((item) => item.id !== id));
-  } catch (error) {
-    alert("Could not delete status option.");
-  }
+  openConfirmModal({
+    title: "Delete Status Option",
+    message: "Are you sure you want to delete this status option?",
+    confirmText: "Delete",
+    onConfirm: async () => {
+      try {
+        if (id) await deleteDoc(doc(db, "hukuruStatusOptions", id));
+        setHukuruStatusOptions((prev) => prev.filter((item) => item.id !== id));
+        showToast("Status option deleted successfully.");
+      } catch (error) {
+        showToast("Could not delete status option.", "error");
+      } finally {
+        closeConfirmModal();
+      }
+    }
+  });
 };
 const pickRandomFrom = (list) => {
   if (!list || list.length === 0) return "";
@@ -1755,6 +1850,89 @@ const getEmployeeDisplayName = (staffName) => {
     ? `${staffName} (${emp.designation})`
     : staffName;
 };
+const getPresenceInfo = (empName) => {
+  const cleanName = (name) => (name || "").trim().toLowerCase();
+
+  const leave = leaves.find(
+    (l) =>
+      cleanName(l.employee) === cleanName(empName) &&
+      l.start <= attendanceDate &&
+      l.end >= attendanceDate
+  );
+
+  if (leave) {
+    return {
+      status: "Annual Leave",
+      className: "presence-annual",
+      detail: `${leave.start} to ${leave.end}`
+    };
+  }
+
+if (
+  yaumiyyaRecord.annualLeave.some(
+    (name) => cleanName(name) === cleanName(empName)
+  )
+) {
+  return {
+    status: "Annual Leave",
+    className: "presence-annual",
+    detail: attendanceDate
+  };
+}
+  if (
+    yaumiyyaRecord.familyLeave.some(
+      (name) => cleanName(name) === cleanName(empName)
+    )
+  ) {
+    return {
+      status: "Family Responsibility Leave",
+      className: "presence-family",
+      detail: attendanceDate
+    };
+  }
+
+if (
+  yaumiyyaRecord.sickLeaveMC.some(
+    (name) => cleanName(name) === cleanName(empName)
+  )
+) {
+  return {
+    status: "Sick Leave With MC",
+    className: "presence-sick-mc",
+    detail: attendanceDate
+  };
+}
+
+if (
+  yaumiyyaRecord.sickLeaveNoMC.some(
+    (name) => cleanName(name) === cleanName(empName)
+  )
+) {
+  return {
+    status: "Sick Leave Without MC",
+    className: "presence-sick-no-mc",
+    detail: attendanceDate
+  };
+}
+  if (
+    yaumiyyaRecord.customLeave.some(
+      (name) => cleanName(name) === cleanName(empName)
+    )
+  ) {
+    return {
+      status: yaumiyyaRecord.customLeaveTitle || "Other Leave",
+      className: "presence-other",
+      detail: attendanceDate
+    };
+  }
+
+  return {
+    status: "Present",
+    className: "presence-attended",
+    detail: "No leave record found"
+  };
+};
+
 if (!user) {
   return (
     <div className="login-page">
@@ -1803,6 +1981,11 @@ if (!user) {
   );
 }
 return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" : ""}`}>
+{toast && (
+  <div className={`toast-banner ${toast.type}`}>
+    {toast.message}
+  </div>
+)}
       {/* Sidebar Overlay */}
       <div className="sidebar-overlay" onClick={() => setIsSidebarOpen(false)}></div>
 
@@ -1836,6 +2019,12 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
   onClick={() => closeSidebarAndGo("attendance")}
 >
   Attendance
+</li>
+<li
+  className={activeTab === "presence-board" ? "active" : ""}
+  onClick={() => closeSidebarAndGo("presence-board")}
+>
+  Presence Board
 </li>
 <li
   className={activeTab === "attendance-settings" ? "active" : ""}
@@ -2870,6 +3059,84 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
 </div>
   </div>
 )}
+{/* PRESENCE BOARD TAB */}
+{activeTab === "presence-board" && (
+  <div className="panel full-width">
+    <div className="table-header">
+      <div>
+        <h2>Presence Board</h2>
+        <p className="muted">
+          Visual daily staff status based on Attendance, Leave Records and Yaumiyya.
+        </p>
+      </div>
+
+      <div className="filter-group">
+        <input
+          type="date"
+          value={attendanceDate}
+          onChange={(e) => setAttendanceDate(e.target.value)}
+        />
+
+        <button
+  className="refresh-btn"
+  onClick={() => {
+    refreshData();
+    loadYaumiyya(attendanceDate);
+    loadAttendance(attendanceDate);
+  }}
+>
+  Refresh
+</button>
+      </div>
+    </div>
+
+    <div className="presence-legend">
+      <span><b className="legend-dot presence-attended"></b> Attended</span>
+      <span><b className="legend-dot presence-annual"></b> Annual Leave</span>
+      <span><b className="legend-dot presence-family"></b> Family Leave</span>
+      <span><b className="legend-dot presence-sick-mc"></b> Sick Leave With MC</span>
+
+<span><b className="legend-dot presence-sick-no-mc"></b> Sick Leave Without MC</span>
+      <span><b className="legend-dot presence-other"></b> Other Leave</span>
+      <span><b className="legend-dot presence-unknown"></b> Not Marked</span>
+    </div>
+
+    <div className="presence-grid">
+      {employees.map((emp) => {
+        const info = getPresenceInfo(emp.name);
+
+        return (
+          <div
+  key={emp.id}
+  className={`presence-card ${info.className}`}
+  title={`${info.status} — ${info.detail}`}
+  onClick={() =>
+    setPresencePopup({
+      name: emp.name,
+      designation: emp.designation || emp.section || "Staff",
+      status: info.status,
+      detail: info.detail,
+      className: info.className
+    })
+  }
+>
+            <strong>{emp.name}</strong>
+            <span>{emp.designation || emp.section || "Staff"}</span>
+
+            <div className="presence-tooltip">
+              <b>{info.status}</b>
+              <small>{info.detail}</small>
+            </div>
+          </div>
+        );
+      })}
+
+      {employees.length === 0 && (
+        <p className="muted">No staff found in directory.</p>
+      )}
+    </div>
+  </div>
+)}
 {/* ATTENDANCE TAB */}
 {activeTab === "attendance" && (
   <div className="panel full-width">
@@ -3823,6 +4090,53 @@ Unlock Hukuru 2026
       </main>
 
       {/* NEW: OVERLAP MODAL POPUP */}
+{presencePopup && (
+  <div className="presence-popup-overlay" onClick={() => setPresencePopup(null)}>
+    <div className="presence-popup-box" onClick={(e) => e.stopPropagation()}>
+      <div className={`presence-popup-icon ${presencePopup.className}`}></div>
+
+      <h3>{presencePopup.name}</h3>
+      <p className="muted">{presencePopup.designation}</p>
+
+      <div className="presence-popup-detail">
+        <span>Status</span>
+        <strong>{presencePopup.status}</strong>
+      </div>
+
+      <div className="presence-popup-detail">
+        <span>Date / Period</span>
+        <strong>{presencePopup.detail}</strong>
+      </div>
+
+      <button className="primary-btn" onClick={() => setPresencePopup(null)}>
+        Close
+      </button>
+    </div>
+  </div>
+)}
+{confirmModal && (
+  <div className="confirm-overlay" onClick={closeConfirmModal}>
+    <div className="confirm-box" onClick={(e) => e.stopPropagation()}>
+      <div className="confirm-icon">!</div>
+
+      <h3>{confirmModal.title}</h3>
+      <p>{confirmModal.message}</p>
+
+      <div className="confirm-actions">
+        <button className="confirm-cancel" onClick={closeConfirmModal}>
+          Cancel
+        </button>
+
+        <button
+          className="confirm-delete"
+          onClick={confirmModal.onConfirm}
+        >
+          {confirmModal.confirmText}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       {overlapModalData && (
         <div className="modal-overlay" onClick={closeOverlapModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
