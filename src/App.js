@@ -79,6 +79,7 @@ function App() {
   const [toast, setToast] = useState(null);
   const [confirmModal, setConfirmModal] = useState(null);
   const [presencePopup, setPresencePopup] = useState(null);
+  const [isTvMode, setIsTvMode] = useState(false);
 
 const showToast = (message, type = "success") => {
   setToast({ message, type });
@@ -1933,6 +1934,28 @@ if (
   };
 };
 
+const presenceStats = employees.reduce(
+  (totals, emp) => {
+    const info = getPresenceInfo(emp.name);
+
+    if (info.className === "presence-attended") totals.present += 1;
+    if (info.className === "presence-annual") totals.annual += 1;
+    if (info.className === "presence-family") totals.family += 1;
+    if (info.className === "presence-sick-mc") totals.sickMC += 1;
+    if (info.className === "presence-sick-no-mc") totals.sickNoMC += 1;
+    if (info.className === "presence-other") totals.other += 1;
+
+    return totals;
+  },
+  {
+    present: 0,
+    annual: 0,
+    family: 0,
+    sickMC: 0,
+    sickNoMC: 0,
+    other: 0
+  }
+);
 if (!user) {
   return (
     <div className="login-page">
@@ -1980,7 +2003,8 @@ if (!user) {
     </div>
   );
 }
-return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" : ""}`}>
+return (
+  <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" : ""} ${isTvMode ? "tv-mode-active" : ""}`}>
 {toast && (
   <div className={`toast-banner ${toast.type}`}>
     {toast.message}
@@ -3061,7 +3085,7 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
 )}
 {/* PRESENCE BOARD TAB */}
 {activeTab === "presence-board" && (
-  <div className="panel full-width">
+    <div className={`panel full-width ${isTvMode ? "tv-mode-board" : ""}`}>
     <div className="table-header">
       <div>
         <h2>Presence Board</h2>
@@ -3090,6 +3114,45 @@ return (    <div className={`app-shell ${isSidebarOpen ? "sidebar-mobile-open" :
       </div>
     </div>
 
+<div className="tv-mode-toolbar">
+  <button
+    className="primary-btn-sm"
+    onClick={() => setIsTvMode(true)}
+  >
+    Open Fullscreen TV Mode
+  </button>
+
+  {isTvMode && (
+    <button
+      className="secondary-btn-sm"
+      onClick={() => setIsTvMode(false)}
+    >
+      Exit TV Mode
+    </button>
+  )}
+</div>
+
+{isTvMode && (
+  <div className="tv-hero">
+    <div>
+      <h1>Funadhoo Council HR Live Board</h1>
+      <p>{attendanceDate} • {attendanceClock}</p>
+    </div>
+
+    <div className="tv-live-pill">LIVE</div>
+  </div>
+)}
+
+{isTvMode && (
+  <div className="tv-stats-grid">
+    <div><strong>{presenceStats.present}</strong><span>Present</span></div>
+    <div><strong>{presenceStats.annual}</strong><span>Annual Leave</span></div>
+    <div><strong>{presenceStats.family}</strong><span>Family Leave</span></div>
+    <div><strong>{presenceStats.sickMC}</strong><span>Sick With MC</span></div>
+    <div><strong>{presenceStats.sickNoMC}</strong><span>Sick Without MC</span></div>
+    <div><strong>{presenceStats.other}</strong><span>Other Leave</span></div>
+  </div>
+)}
     <div className="presence-legend">
       <span><b className="legend-dot presence-attended"></b> Attended</span>
       <span><b className="legend-dot presence-annual"></b> Annual Leave</span>
