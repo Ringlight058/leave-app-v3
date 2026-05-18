@@ -80,6 +80,8 @@ function App() {
   const [confirmModal, setConfirmModal] = useState(null);
   const [presencePopup, setPresencePopup] = useState(null);
   const [isTvMode, setIsTvMode] = useState(false);
+  const [deletePinModal, setDeletePinModal] = useState(null);
+  const [deletePinInput, setDeletePinInput] = useState("");
 
 const showToast = (message, type = "success") => {
   setToast({ message, type });
@@ -1102,9 +1104,24 @@ if (hasOverlap) {
   };
 
 const removeLeave = async (id) => {
+  setDeletePinInput("");
+  setDeletePinModal({ id });
+};
+
+const confirmLeaveDeleteWithPin = () => {
+  if (deletePinInput !== "2391") {
+    showToast("Incorrect PIN. Leave record was not deleted.", "error");
+    return;
+  }
+
+  const id = deletePinModal?.id;
+
+  setDeletePinModal(null);
+  setDeletePinInput("");
+
   openConfirmModal({
     title: "Delete Leave Record",
-    message: "Are you sure you want to delete this leave record? This action cannot be undone.",
+    message: "PIN verified. Are you sure you want to delete this leave record? This action cannot be undone.",
     confirmText: "Delete",
     onConfirm: async () => {
       try {
@@ -1119,7 +1136,6 @@ const removeLeave = async (id) => {
     }
   });
 };
-
   // UPDATED: Save Holiday to Firebase
   const addHoliday = async (e) => {
     e.preventDefault();
@@ -2077,7 +2093,7 @@ return (
           <button className="burger-btn" onClick={() => setIsSidebarOpen(true)}>☰</button>
           <h1 className="page-title">{activeTab.replace("-", " ").toUpperCase()}</h1>
           <div className="user-profile">
-  <span>Latest Build: 2026/05/03 10:32</span>
+  <span>Latest Build: 2026/05/18 19:42</span>
   <button className="logout-btn" onClick={handleLogout}>
     Logout
   </button>
@@ -4153,6 +4169,42 @@ Unlock Hukuru 2026
       </main>
 
       {/* NEW: OVERLAP MODAL POPUP */}
+{deletePinModal && (
+  <div className="confirm-overlay" onClick={() => setDeletePinModal(null)}>
+    <div className="confirm-box" onClick={(e) => e.stopPropagation()}>
+      <div className="confirm-icon">🔐</div>
+
+      <h3>Delete Authorization Required</h3>
+      <p>Enter the delete PIN to continue removing this leave record.</p>
+
+      <input
+        type="password"
+        inputMode="numeric"
+        maxLength="4"
+        placeholder="Enter PIN"
+        value={deletePinInput}
+        onChange={(e) => setDeletePinInput(e.target.value)}
+        className="pin-input"
+      />
+
+      <div className="confirm-actions">
+        <button
+          className="confirm-cancel"
+          onClick={() => {
+            setDeletePinModal(null);
+            setDeletePinInput("");
+          }}
+        >
+          Cancel
+        </button>
+
+        <button className="confirm-delete" onClick={confirmLeaveDeleteWithPin}>
+          Verify PIN
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 {presencePopup && (
   <div className="presence-popup-overlay" onClick={() => setPresencePopup(null)}>
     <div className="presence-popup-box" onClick={(e) => e.stopPropagation()}>
