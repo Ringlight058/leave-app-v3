@@ -79,6 +79,7 @@ function App() {
   const [toast, setToast] = useState(null);
   const [confirmModal, setConfirmModal] = useState(null);
   const [presencePopup, setPresencePopup] = useState(null);
+  const [employeeProfile, setEmployeeProfile] = useState(null);
   const [isTvMode, setIsTvMode] = useState(false);
   const [deletePinModal, setDeletePinModal] = useState(null);
   const [deletePinInput, setDeletePinInput] = useState("");
@@ -1920,6 +1921,32 @@ const isStaffOnLeaveToday = (staffName) => {
   );
 };
 
+const openEmployeeProfile = (emp) => {
+  const todayInfo = getPresenceInfo(emp.name);
+
+  const currentLeave = leaves.find(
+    (l) =>
+      l.employee === emp.name &&
+      l.start <= attendanceDate &&
+      l.end >= attendanceDate
+  );
+
+  const upcomingLeave = [...leaves]
+    .filter((l) => l.employee === emp.name && l.start > attendanceDate)
+    .sort((a, b) => new Date(a.start) - new Date(b.start))[0];
+
+  const attendance = attendanceRecord[emp.name] || {};
+
+  setEmployeeProfile({
+    ...emp,
+    todayStatus: todayInfo.status,
+    todayDetail: todayInfo.detail,
+    statusClass: todayInfo.className,
+    currentLeave,
+    upcomingLeave,
+    attendance
+  });
+};
 const getEmployeeDisplayName = (staffName) => {
   const emp = employees.find((e) => e.name === staffName);
 
@@ -2775,7 +2802,15 @@ return (
         <tbody>
           {filteredEmployees.map((e) => (
             <tr key={e.id}>
-              <td>{e.name}</td>
+              <td>
+  <button
+    type="button"
+    className="profile-link"
+    onClick={() => openEmployeeProfile(e)}
+  >
+    {e.name}
+  </button>
+</td>
               <td>{e.designation || "—"}</td>
               <td>
   <span className="badge">{e.section}</span>
@@ -3266,15 +3301,7 @@ return (
   key={emp.id}
   className={`presence-card ${info.className}`}
   title={`${info.status} — ${info.detail}`}
-  onClick={() =>
-    setPresencePopup({
-      name: emp.name,
-      designation: emp.designation || emp.section || "Staff",
-      status: info.status,
-      detail: info.detail,
-      className: info.className
-    })
-  }
+  onClick={() => openEmployeeProfile(emp)}
 >
             <strong>{emp.name}</strong>
             <span>{emp.designation || emp.section || "Staff"}</span>
@@ -4318,6 +4345,79 @@ Unlock Hukuru 2026
           Verify PIN
         </button>
       </div>
+    </div>
+  </div>
+)}
+{employeeProfile && (
+  <div className="presence-popup-overlay" onClick={() => setEmployeeProfile(null)}>
+    <div className="employee-profile-box" onClick={(e) => e.stopPropagation()}>
+      <div className="employee-profile-header">
+        <div className={`employee-avatar ${employeeProfile.statusClass}`}>
+          {employeeProfile.name?.charAt(0)}
+        </div>
+
+        <div>
+          <h3>{employeeProfile.name}</h3>
+          <p>{employeeProfile.designation || "No designation"}</p>
+        </div>
+      </div>
+
+      <div className="profile-info-grid">
+        <div>
+          <span>Section</span>
+          <strong>{employeeProfile.section || "—"}</strong>
+        </div>
+
+        <div>
+          <span>Supervisor</span>
+          <strong>{employeeProfile.supervisor || "—"}</strong>
+        </div>
+
+        <div>
+          <span>Staff Status</span>
+          <strong>{employeeProfile.status === "inactive" ? "Inactive" : "Active"}</strong>
+        </div>
+
+        <div>
+          <span>Today</span>
+          <strong>{employeeProfile.todayStatus}</strong>
+        </div>
+      </div>
+
+      <div className="profile-detail-card">
+        <span>Today Detail</span>
+        <strong>{employeeProfile.todayDetail}</strong>
+      </div>
+
+      <div className="profile-detail-card">
+        <span>Attendance</span>
+        <strong>
+          Check-in: {employeeProfile.attendance?.checkIn || "—"} | Check-out:{" "}
+          {employeeProfile.attendance?.checkOut || "—"}
+        </strong>
+      </div>
+
+      <div className="profile-detail-card">
+        <span>Current Leave</span>
+        <strong>
+          {employeeProfile.currentLeave
+            ? `${employeeProfile.currentLeave.start} to ${employeeProfile.currentLeave.end}`
+            : "No current leave"}
+        </strong>
+      </div>
+
+      <div className="profile-detail-card">
+        <span>Next Upcoming Leave</span>
+        <strong>
+          {employeeProfile.upcomingLeave
+            ? `${employeeProfile.upcomingLeave.start} to ${employeeProfile.upcomingLeave.end}`
+            : "No upcoming leave"}
+        </strong>
+      </div>
+
+      <button className="primary-btn" onClick={() => setEmployeeProfile(null)}>
+        Close
+      </button>
     </div>
   </div>
 )}
