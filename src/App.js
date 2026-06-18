@@ -82,6 +82,8 @@ function App() {
   const [isTvMode, setIsTvMode] = useState(false);
   const [deletePinModal, setDeletePinModal] = useState(null);
   const [deletePinInput, setDeletePinInput] = useState("");
+  const [statusPinModal, setStatusPinModal] = useState(null);
+  const [statusPinInput, setStatusPinInput] = useState("");
 
 const showToast = (message, type = "success") => {
   setToast({ message, type });
@@ -1025,11 +1027,12 @@ const closeGroupModal = () => {
     setIsLoading(true);
     try {
       const payload = {
-        name: safeName,
-        designation: (empForm.designation || "").trim(),
-        section: safeSection,
-        supervisor: (empForm.supervisor || "").trim()
-      };
+  name: safeName,
+  designation: (empForm.designation || "").trim(),
+  section: safeSection,
+  supervisor: (empForm.supervisor || "").trim(),
+  status: "active"
+};
 
       const docRef = await addDoc(collection(db, "employees"), payload);
       setEmployees((prev) => [...prev, { id: docRef.id, ...payload }]);
@@ -1044,6 +1047,58 @@ const closeGroupModal = () => {
   };
 
   // NEW: Delete Employee
+const toggleEmployeeStatus = (employee) => {
+  setStatusPinInput("");
+  setStatusPinModal({ employee });
+};
+
+const confirmEmployeeStatusWithPin = () => {
+  if (statusPinInput !== "2391") {
+    showToast("Incorrect PIN. Staff status was not changed.", "error");
+    return;
+  }
+
+  const employee = statusPinModal?.employee;
+  if (!employee) return;
+
+  const nextStatus = employee.status === "inactive" ? "active" : "inactive";
+  const actionText = nextStatus === "inactive" ? "deactivate" : "activate";
+
+  setStatusPinModal(null);
+  setStatusPinInput("");
+
+  openConfirmModal({
+    title: nextStatus === "inactive" ? "Deactivate Staff" : "Activate Staff",
+    message: `PIN verified. Are you sure you want to ${actionText} ${employee.name}?`,
+    confirmText: nextStatus === "inactive" ? "Deactivate" : "Activate",
+    onConfirm: async () => {
+      try {
+        await setDoc(doc(db, "employees", employee.id), {
+          ...employee,
+          status: nextStatus
+        });
+
+        setEmployees((prev) =>
+          prev.map((item) =>
+            item.id === employee.id
+              ? { ...item, status: nextStatus }
+              : item
+          )
+        );
+
+        showToast(
+          nextStatus === "inactive"
+            ? "Employee marked as inactive."
+            : "Employee marked as active."
+        );
+      } catch (error) {
+        showToast("Could not update employee status.", "error");
+      } finally {
+        closeConfirmModal();
+      }
+    }
+  });
+};
 const removeEmployee = async (id) => {
   openConfirmModal({
     title: "Delete Employee",
@@ -1723,6 +1778,9 @@ const renderHukuruMiniCalendar = () => {
 };
 
   // --- FILTERS ---
+const activeEmployees = employees.filter((emp) => emp.status !== "inactive");
+
+const activeEmployeeNames = new Set(activeEmployees.map((emp) => emp.name));
 const filteredEmployees = employees.filter((e) => {
   const sectionMatch = !dirFilter.section || e.section === dirFilter.section;
 
@@ -1736,8 +1794,10 @@ const filteredEmployees = employees.filter((e) => {
 
   return sectionMatch && supervisorMatch && nameMatch;
 });
-const filteredLeaves = leaves.filter((l) =>
-  (l.employee || "").toLowerCase().includes(leaveSearch.toLowerCase())
+const filteredLeaves = leaves.filter(
+  (l) =>
+    activeEmployeeNames.has(l.employee) &&
+    (l.employee || "").toLowerCase().includes(leaveSearch.toLowerCase())
 );
 const calculateLeaveDays = (start, end) => {
   if (!start || !end) return 0;
@@ -2093,7 +2153,7 @@ return (
           <button className="burger-btn" onClick={() => setIsSidebarOpen(true)}>☰</button>
           <h1 className="page-title">{activeTab.replace("-", " ").toUpperCase()}</h1>
           <div className="user-profile">
-  <span>Latest Build: 2026/05/18 19:42</span>
+  <span>Latest Build: 2026/06/18 08:53</span>
   <button className="logout-btn" onClick={handleLogout}>
     Logout
   </button>
@@ -2612,7 +2672,9 @@ return (
                 <div className="form-stack">
                   <select required value={leaveForm.employee} onChange={(e) => setLeaveForm({ ...leaveForm, employee: e.target.value })}>
                     <option value="">Select employee *</option>
-                    {employees.map((emp) => <option key={emp.id} value={emp.name}>{emp.name}</option>)}
+                    {activeEmployees.map((emp) => (
+  <option key={emp.id} value={emp.name}>{emp.name}</option>
+))}
                   </select>
                   <input required type="date" value={leaveForm.start} onChange={(e) => setLeaveForm({ ...leaveForm, start: e.target.value })} />
                   <input required type="date" value={leaveForm.end} onChange={(e) => setLeaveForm({ ...leaveForm, end: e.target.value })} />
@@ -2702,10 +2764,11 @@ return (
         <thead>
           <tr>
             <th>Name</th>
-            <th>Designation</th>
-            <th>Section</th>
-            <th>Supervisor</th>
-            <th>Action</th>
+<th>Designation</th>
+<th>Section</th>
+<th>Supervisor</th>
+<th>Status</th>
+<th>Action</th>
           </tr>
         </thead>
 
@@ -2715,23 +2778,37 @@ return (
               <td>{e.name}</td>
               <td>{e.designation || "—"}</td>
               <td>
-                <span className="badge">{e.section}</span>
-              </td>
-              <td>{e.supervisor || "—"}</td>
-              <td>
-                <button
-                  className="text-danger"
-                  onClick={() => removeEmployee(e.id)}
-                >
-                  Delete
-                </button>
-              </td>
-            </tr>
+  <span className="badge">{e.section}</span>
+</td>
+<td>{e.supervisor || "—"}</td>
+<td>
+  <span className={`badge ${e.status === "inactive" ? "inactive-badge" : "active-badge"}`}>
+    {e.status === "inactive" ? "Inactive" : "Active"}
+  </span>
+</td>
+<td>
+  <div className="action-flex">
+    <button
+      className="secondary-btn-sm"
+      onClick={() => toggleEmployeeStatus(e)}
+    >
+      {e.status === "inactive" ? "Activate" : "Deactivate"}
+    </button>
+
+    <button
+      className="text-danger"
+      onClick={() => removeEmployee(e.id)}
+    >
+      Delete
+    </button>
+  </div>
+</td>
+</tr>
           ))}
 
           {filteredEmployees.length === 0 && (
             <tr>
-              <td colSpan="5" className="muted">
+              <td colSpan="6" className="muted">
                 No staff found.
               </td>
             </tr>
@@ -3181,7 +3258,7 @@ return (
     </div>
 
     <div className="presence-grid">
-      {employees.map((emp) => {
+      {activeEmployees.map((emp) => {
         const info = getPresenceInfo(emp.name);
 
         return (
@@ -3210,7 +3287,7 @@ return (
         );
       })}
 
-      {employees.length === 0 && (
+      {activeEmployees.length === 0 && (
         <p className="muted">No staff found in directory.</p>
       )}
     </div>
@@ -3253,7 +3330,7 @@ return (
           onChange={(e) => setAttendanceStaff(e.target.value)}
         >
           <option value="">Select staff</option>
-          {employees.map((emp) => (
+          {activeEmployees.map((emp) => (
             <option key={emp.id} value={emp.name}>
               {emp.name}
             </option>
@@ -3288,11 +3365,11 @@ return (
         </thead>
 
         <tbody>
-          {employees.map((emp) => {
-            const record = attendanceRecord[emp.name] || {};
-            const late = getLateMinutes(record.checkIn, emp.name);
+          {activeEmployees.map((emp) => {
+  const record = attendanceRecord[emp.name] || {};
+  const late = getLateMinutes(record.checkIn, emp.name);
 
-            return (
+  return (
               <tr key={emp.id}>
                 <td><strong>{emp.name}</strong></td>
                 <td>{record.checkIn || "—"}</td>
@@ -3308,7 +3385,7 @@ return (
             );
           })}
 
-          {employees.length === 0 && (
+          {activeEmployees.length === 0 && (
             <tr>
               <td colSpan="4" className="muted text-center">
                 No staff found in directory.
@@ -3462,7 +3539,7 @@ return (
             </thead>
 
             <tbody>
-              {employees.map((emp) => {
+              {activeEmployees.map((emp) => {
                 const rule = getStaffAttendanceRule(emp.name);
 
                 return (
@@ -3522,7 +3599,7 @@ return (
                 );
               })}
 
-              {employees.length === 0 && (
+              {activeEmployees.length === 0 && (
                 <tr>
                   <td colSpan="6" className="muted text-center">
                     No staff found in directory.
@@ -4169,6 +4246,45 @@ Unlock Hukuru 2026
       </main>
 
       {/* NEW: OVERLAP MODAL POPUP */}
+{statusPinModal && (
+  <div className="confirm-overlay" onClick={() => setStatusPinModal(null)}>
+    <div className="confirm-box" onClick={(e) => e.stopPropagation()}>
+      <div className="confirm-icon">🔐</div>
+
+      <h3>Staff Status Authorization</h3>
+      <p>
+        Enter the PIN to {statusPinModal.employee?.status === "inactive" ? "activate" : "deactivate"}{" "}
+        <strong>{statusPinModal.employee?.name}</strong>.
+      </p>
+
+      <input
+        type="password"
+        inputMode="numeric"
+        maxLength="4"
+        placeholder="Enter PIN"
+        value={statusPinInput}
+        onChange={(e) => setStatusPinInput(e.target.value)}
+        className="pin-input"
+      />
+
+      <div className="confirm-actions">
+        <button
+          className="confirm-cancel"
+          onClick={() => {
+            setStatusPinModal(null);
+            setStatusPinInput("");
+          }}
+        >
+          Cancel
+        </button>
+
+        <button className="confirm-delete" onClick={confirmEmployeeStatusWithPin}>
+          Verify PIN
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 {deletePinModal && (
   <div className="confirm-overlay" onClick={() => setDeletePinModal(null)}>
     <div className="confirm-box" onClick={(e) => e.stopPropagation()}>
