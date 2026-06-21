@@ -395,7 +395,75 @@ const generateLeaveRecordsPDF = async () => {
   });
 
   pdf.save("Leave Records Report.pdf");
-};  const [hukuruUnlocked, setHukuruUnlocked] = useState(false);
+}; 
+const generateAttendancePDF = async () => {
+  const ref = doc(db, "attendance", reportDate);
+  const snap = await getDoc(ref);
+
+  const records = snap.exists() ? snap.data().records || {} : {};
+
+  const reportData = activeEmployees.map((emp) => {
+    const record = records[emp.name] || {};
+    const late = getLateMinutes(record.checkIn, emp.name);
+
+    return {
+      name: emp.name,
+      designation: emp.designation || "—",
+      checkIn: record.checkIn || "—",
+      checkOut: record.checkOut || "—",
+      late: late || "—",
+      status: record.checkIn ? "Present" : "Not Marked"
+    };
+  });
+
+  const pdf = new jsPDF("p", "mm", "a4");
+
+  autoTable(pdf, {
+    startY: 72,
+    head: [["#", "Employee", "Designation", "Check In", "Check Out", "Late", "Status"]],
+    body: reportData.map((r, i) => [
+      i + 1,
+      r.name,
+      r.designation,
+      r.checkIn,
+      r.checkOut,
+      r.late,
+      r.status
+    ]),
+    styles: {
+      fontSize: 8,
+      cellPadding: 3,
+      textColor: [30, 41, 59],
+      lineColor: [226, 232, 240],
+      lineWidth: 0.2
+    },
+    headStyles: {
+      fillColor: [30, 64, 175],
+      textColor: [255, 255, 255],
+      fontStyle: "bold"
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252]
+    },
+    margin: {
+      top: 72,
+      left: 10,
+      right: 10,
+      bottom: 18
+    },
+    didDrawPage: () => {
+      addReportHeaderFooter(
+        pdf,
+        `Attendance Report - ${reportDate}`,
+        reportData.length
+      );
+    }
+  });
+
+  pdf.save(`Attendance Report ${reportDate}.pdf`);
+};
+ 
+const [hukuruUnlocked, setHukuruUnlocked] = useState(false);
   const [hukuruPassword, setHukuruPassword] = useState("");
   const [vagutheeRecords, setVagutheeRecords] = useState([]);
 const [vagutheeForm, setVagutheeForm] = useState({
@@ -2470,6 +2538,13 @@ return (
               Export PDF
             </button>
           </section>
+<section className="report-card">
+  <h3>Attendance Report</h3>
+  <p>Export daily attendance with check-in, check-out, late minutes and status.</p>
+  <button className="primary-btn-sm" onClick={generateAttendancePDF}>
+    Export PDF
+  </button>
+</section>
         </div>
 
         <div className="report-preview-stack">
