@@ -2419,9 +2419,6 @@ return (
         </section>
       )}
 
-    </div>
-  )}
-</div>
 {yaumiyyaRecord.customLeave?.length > 0 && (
   <section className="panel">
     <h2>{yaumiyyaRecord.customLeaveTitle || "Other Leave"}</h2>
@@ -2442,8 +2439,13 @@ return (
   </section>
 )}
 
+        </div>
+  )}
+</div>
+
             </div>
           )}
+
 {activeTab === "reports" && (
   <div className="reports-page">
     {!reportsUnlocked ? (
@@ -4345,7 +4347,6 @@ Unlock Hukuru 2026
             </div>
           )}
         </div>
-      </main>
 
       {/* NEW: OVERLAP MODAL POPUP */}
 {statusPinModal && (
@@ -4700,9 +4701,10 @@ if (!user) {
             </div>
           </div>
         </div>
-      )}
+            )}
+      </main>
     </div>
-);
+  );
 }
 
 export default App;
