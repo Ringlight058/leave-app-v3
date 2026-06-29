@@ -4,7 +4,6 @@ import "./App.css";
 import { animate, stagger } from "animejs";
 import { db } from "./firebase";
 import { collection, addDoc, getDocs, deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
-import noticeImg from "./assets/notice1.png";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { auth } from "./firebase";
@@ -57,9 +56,7 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [viewDate, setViewDate] = useState(new Date());
   const [leaveSearch, setLeaveSearch] = useState("");
-  const [showNotice, setShowNotice] = useState(true);
   const [showSalaamFRL, setShowSalaamFRL] = useState(false);
-  const [fadeNotice, setFadeNotice] = useState(false);
   const [staffGroups, setStaffGroups] = useState([]);
   const [groupForm, setGroupForm] = useState({ name: "", members: [] });
   const [yaumiyyaUnlocked, setYaumiyyaUnlocked] = useState(false);
@@ -574,20 +571,6 @@ const [attendanceSettings, setAttendanceSettings] = useState({
   defaultCheckOutClose: "14:55",
   staffTimes: {}
 });
-useEffect(() => {
-  const fadeTimer = setTimeout(() => {
-    setFadeNotice(true); // start fade
-  }, 6000); // start fading at 4s
-
-  const hideTimer = setTimeout(() => {
-    setShowNotice(false); // fully remove
-  }, 7000); // remove at 5s
-
-  return () => {
-    clearTimeout(fadeTimer);
-    clearTimeout(hideTimer);
-  };
-}, []);
 
   // --- DATA LOADING ---
   const refreshData = async () => {
@@ -2258,13 +2241,8 @@ return (
         <div className="content-area">
           {/* HOME TAB */}
           {activeTab === "home" && (
-            <div className="home-grid">
-{showNotice && (
-  <div className={`calendar-notice ${fadeNotice ? "fade-out" : ""}`}>
-    <img src={noticeImg} alt="Notice" />
-  </div>
-)}
-<section className="panel">
+  <div className="home-grid">
+    <section className="panel">
 
 <div className="flex-between mb-4">
   <h2>
