@@ -15,6 +15,36 @@ import {
   signInWithPopup
 } from "firebase/auth";
 
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject
+} from "firebase/storage";
+
+const storage = getStorage();
+
+const getMaldivesDateString = () => {
+  return new Date().toLocaleDateString("en-CA", {
+    timeZone: "Indian/Maldives"
+  });
+};
+
+const createEmptyNoticeForm = () => ({
+  title: "",
+  description: "",
+  priority: "normal",
+  visibility: "all",
+  visibleStaffEmails: [],
+  visibleStaffNames: [],
+  visibleGroupId: "",
+  visibleGroupName: "",
+  publishDate: getMaldivesDateString(),
+  expiryDate: "",
+  isPinned: false
+});
+
 const months = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
@@ -82,6 +112,22 @@ function App() {
   const [deletePinInput, setDeletePinInput] = useState("");
   const [statusPinModal, setStatusPinModal] = useState(null);
   const [statusPinInput, setStatusPinInput] = useState("");
+  const [employeeEmailModal, setEmployeeEmailModal] = useState(null);
+  const [employeeEmailInput, setEmployeeEmailInput] = useState("");
+
+  const [employeeEmailPinModal, setEmployeeEmailPinModal] = useState(null);
+  const [employeeEmailPinInput, setEmployeeEmailPinInput] = useState("");
+  const [notices, setNotices] = useState([]);
+  const [noticeFilter, setNoticeFilter] = useState("all");
+
+  const [showNoticeAdminPanel, setShowNoticeAdminPanel] = useState(false);
+  const [noticeAdminUnlocked, setNoticeAdminUnlocked] = useState(false);
+  const [noticeAdminPassword, setNoticeAdminPassword] = useState("");
+
+  const [noticeForm, setNoticeForm] = useState(createEmptyNoticeForm());
+  const [noticeUploadFile, setNoticeUploadFile] = useState(null);
+  const [noticeUploadKey, setNoticeUploadKey] = useState(0);
+  const [isNoticeSaving, setIsNoticeSaving] = useState(false);
 
 const showToast = (message, type = "success") => {
   setToast({ message, type });
@@ -547,8 +593,20 @@ const [yaumiyyaRecord, setYaumiyyaRecord] = useState({
   customLeave: []
 });
 
-  const [empForm, setEmpForm] = useState({ name: "", designation: "", section: "", supervisor: "" });
-  const [leaveForm, setLeaveForm] = useState({ employee: "", start: "", end: "" });
+  const [empForm, setEmpForm] = useState({
+  name: "",
+  email: "",
+  designation: "",
+  section: "",
+  supervisor: ""
+});
+
+  const [leaveForm, setLeaveForm] = useState({
+  employee: "",
+  start: "",
+  end: "",
+  leaveDays: ""
+});
   const [holidayForm, setHolidayForm] = useState({ name: "", date: "" });
   const [dirFilter, setDirFilter] = useState({ section: "", supervisor: "" });
 
@@ -588,6 +646,9 @@ const [attendanceSettings, setAttendanceSettings] = useState({
 
       const groupSnap = await getDocs(collection(db, "staffGroups"));
       setStaffGroups(groupSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+
+      const noticeSnap = await getDocs(collection(db, "notices"));
+      setNotices(noticeSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
 
       // NEW: Fetch holidays from Firebase
       const holidaySnap = await getDocs(collection(db, "holidays"));
@@ -1066,39 +1127,534 @@ const closeGroupModal = () => {
   setGroupModalData(null);
 };
 
-  // --- ACTIONS ---
-  const saveEmployee = async (e) => {
-    e.preventDefault(); 
-    const safeName = (empForm.name || "").trim();
-    const safeSection = (empForm.section || "").trim();
-
-    if (!safeName || !safeSection) {
-      return alert("Please fill in both Name and Section.");
-    }
-
-    setIsLoading(true);
-    try {
-      const payload = {
-  name: safeName,
-  designation: (empForm.designation || "").trim(),
-  section: safeSection,
-  supervisor: (empForm.supervisor || "").trim(),
-  status: "active"
+const normalizeNoticeName = (value) => {
+  return (value || "").trim().toLowerCase();
 };
 
-      const docRef = await addDoc(collection(db, "employees"), payload);
-      setEmployees((prev) => [...prev, { id: docRef.id, ...payload }]);
-      setEmpForm({ name: "", designation: "", section: "", supervisor: "" });
-      alert("Staff registered successfully!");
-    } catch (error) {
-      console.error("Firebase write error:", error);
-      alert(`Could not save to Firebase: ${error.message}`);
-    } finally {
-      setIsLoading(false);
+const normalizeEmail = (value) => {
+  return (value || "").trim().toLowerCase();
+};
+
+const getNoticeFileTypeLabel = (fileType = "") => {
+  if (fileType.startsWith("image/")) return "Image";
+  if (fileType === "application/pdf") return "PDF Document";
+
+  if (
+    fileType ===
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  ) {
+    return "Word Document";
+  }
+
+  if (fileType === "application/msword") {
+    return "Word Document";
+  }
+
+  return "Attachment";
+};
+
+const formatNoticeFileSize = (size = 0) => {
+  if (!size) return "";
+
+  if (size < 1024 * 1024) {
+    return `${Math.ceil(size / 1024)} KB`;
+  }
+
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const formatNoticeDate = (dateValue) => {
+  if (!dateValue) return "—";
+
+  const safeDate =
+    typeof dateValue === "string" && dateValue.length === 10
+      ? `${dateValue}T12:00:00`
+      : dateValue;
+
+  return new Date(safeDate).toLocaleDateString("en-GB", {
+    timeZone: "Indian/Maldives",
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+};
+
+const getNoticePriorityLabel = (priority) => {
+  if (priority === "urgent") return "Urgent";
+  if (priority === "important") return "Important";
+  return "Notice";
+};
+
+const getNoticeVisibilityLabel = (notice) => {
+  if (notice.visibility === "staff") {
+    const total =
+      notice.visibleStaffEmails?.length ||
+      notice.visibleStaff?.length ||
+      0;
+
+    return `${total} selected staff`;
+  }
+
+  if (notice.visibility === "group") {
+    return notice.visibleGroupName || "Selected staff group";
+  }
+
+  return "All active staff";
+};
+
+const isNoticeImage = (notice) => {
+  return (notice.fileType || "").startsWith("image/");
+};
+
+const canCurrentUserSeeNotice = (notice) => {
+  if (noticeAdminUnlocked) {
+    return true;
+  }
+
+  if (!notice.visibility || notice.visibility === "all") {
+    return true;
+  }
+
+  const signedInEmail = normalizeEmail(user?.email);
+
+  if (!signedInEmail) {
+    return false;
+  }
+
+  if (notice.visibility === "staff") {
+    return (notice.visibleStaffEmails || []).some(
+      (email) => normalizeEmail(email) === signedInEmail
+    );
+  }
+
+  if (notice.visibility === "group") {
+    const group = staffGroups.find(
+      (item) => item.id === notice.visibleGroupId
+    );
+
+    return (group?.members || []).some((memberName) => {
+      const employee = employees.find(
+        (item) =>
+          normalizeNoticeName(item.name) ===
+          normalizeNoticeName(memberName)
+      );
+
+      return normalizeEmail(employee?.email) === signedInEmail;
+    });
+  }
+
+  return false;
+};
+
+
+const unlockNoticeAdmin = () => {
+  if (noticeAdminPassword !== "Saanif@2391") {
+    showToast("Incorrect Notice Board Admin password.", "error");
+    return;
+  }
+
+  setNoticeAdminUnlocked(true);
+  setNoticeAdminPassword("");
+  setShowNoticeAdminPanel(true);
+
+  showToast("Notice Board Admin unlocked.");
+};
+
+const exitNoticeAdminMode = () => {
+  setNoticeAdminUnlocked(false);
+  setNoticeAdminPassword("");
+  setShowNoticeAdminPanel(false);
+  setNoticeUploadFile(null);
+};
+
+const toggleNoticeStaffSelection = (employee) => {
+  const email = normalizeEmail(employee.email);
+
+  if (!email) {
+    return;
+  }
+
+  setNoticeForm((previous) => {
+    const alreadySelected =
+      previous.visibleStaffEmails.includes(email);
+
+    return {
+      ...previous,
+
+      visibleStaffEmails: alreadySelected
+        ? previous.visibleStaffEmails.filter(
+            (selectedEmail) => selectedEmail !== email
+          )
+        : [...previous.visibleStaffEmails, email],
+
+      visibleStaffNames: alreadySelected
+        ? previous.visibleStaffNames.filter(
+            (name) => name !== employee.name
+          )
+        : [...previous.visibleStaffNames, employee.name]
+    };
+  });
+};
+
+
+const publishNotice = async (e) => {
+  e.preventDefault();
+
+  if (!noticeAdminUnlocked) {
+    return alert("Unlock Notice Board Admin before publishing a notice.");
+  }
+
+  const safeTitle = (noticeForm.title || "").trim();
+  const safeDescription = (noticeForm.description || "").trim();
+
+  const selectedGroup = staffGroups.find(
+  (group) => group.id === noticeForm.visibleGroupId
+);
+
+  if (!safeTitle) {
+    return alert("Please enter a notice title.");
+  }
+
+  if (
+    noticeForm.visibility === "staff" &&
+    noticeForm.visibleStaffEmails.length === 0
+  ) {
+    return alert("Select at least one staff member.");
+  }
+
+  if (
+    noticeForm.visibility === "group" &&
+    !noticeForm.visibleGroupId
+  ) {
+    return alert("Select a staff group.");
+  }
+
+  if (
+    noticeForm.expiryDate &&
+    noticeForm.publishDate &&
+    noticeForm.expiryDate < noticeForm.publishDate
+  ) {
+    return alert("Expiry date cannot be before publish date.");
+  }
+
+  if (noticeUploadFile) {
+    const allowedFile =
+      noticeUploadFile.type.startsWith("image/") ||
+      noticeUploadFile.type === "application/pdf" ||
+      noticeUploadFile.type === "application/msword" ||
+      noticeUploadFile.type ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+    if (!allowedFile) {
+      return alert(
+        "Only images, PDF files and Word documents can be uploaded."
+      );
     }
-  };
+
+    if (noticeUploadFile.size > 10 * 1024 * 1024) {
+      return alert("Maximum attachment size is 10 MB.");
+    }
+  }
+
+  setIsNoticeSaving(true);
+
+  let uploadedFilePath = "";
+
+  try {
+    let fileUrl = "";
+    let filePath = "";
+    let fileName = "";
+    let fileType = "";
+    let fileSize = 0;
+
+    if (noticeUploadFile) {
+      const safeFileName = noticeUploadFile.name.replace(
+        /[^a-zA-Z0-9._-]/g,
+        "_"
+      );
+
+      filePath = `notice-board/${Date.now()}-${safeFileName}`;
+      uploadedFilePath = filePath;
+
+      const storageReference = ref(storage, filePath);
+
+      await uploadBytes(storageReference, noticeUploadFile, {
+        contentType: noticeUploadFile.type
+      });
+
+      fileUrl = await getDownloadURL(storageReference);
+      fileName = noticeUploadFile.name;
+      fileType = noticeUploadFile.type;
+      fileSize = noticeUploadFile.size;
+    }
+
+
+    const payload = {
+      title: safeTitle,
+      description: safeDescription,
+      priority: noticeForm.priority,
+      visibility: noticeForm.visibility,
+
+      visibleStaffEmails:
+  noticeForm.visibility === "staff"
+    ? noticeForm.visibleStaffEmails
+    : [],
+
+visibleStaffNames:
+  noticeForm.visibility === "staff"
+    ? noticeForm.visibleStaffNames
+    : [],
+
+      visibleGroupId:
+        noticeForm.visibility === "group"
+          ? noticeForm.visibleGroupId
+          : "",
+
+      visibleGroupName:
+        noticeForm.visibility === "group"
+          ? selectedGroup?.name || ""
+          : "",
+
+      publishDate:
+        noticeForm.publishDate || getMaldivesDateString(),
+
+      expiryDate: noticeForm.expiryDate || "",
+      isPinned: Boolean(noticeForm.isPinned),
+
+      fileUrl,
+      filePath,
+      fileName,
+      fileType,
+      fileSize,
+
+      createdAt: Date.now(),
+      createdBy: user?.email || user?.displayName || "Unknown user"
+    };
+
+    const docRef = await addDoc(
+      collection(db, "notices"),
+      payload
+    );
+
+    setNotices((previous) => [
+      ...previous,
+      { id: docRef.id, ...payload }
+    ]);
+
+    setNoticeForm(createEmptyNoticeForm());
+    setNoticeUploadFile(null);
+    setNoticeUploadKey((current) => current + 1);
+
+    showToast("Notice published successfully.");
+  } catch (error) {
+    console.error("Error publishing notice:", error);
+
+    if (uploadedFilePath) {
+      try {
+        await deleteObject(ref(storage, uploadedFilePath));
+      } catch (cleanupError) {
+        console.error(
+          "Could not clean up the failed attachment upload:",
+          cleanupError
+        );
+      }
+    }
+
+    alert(`Could not publish notice: ${error.message}`);
+  } finally {
+    setIsNoticeSaving(false);
+  }
+};
+
+const removeNotice = (notice) => {
+  openConfirmModal({
+    title: "Delete Notice",
+    message: `Are you sure you want to delete "${notice.title}"? Its uploaded attachment will also be deleted.`,
+    confirmText: "Delete",
+    onConfirm: async () => {
+      try {
+        await deleteDoc(doc(db, "notices", notice.id));
+
+        if (notice.filePath) {
+          try {
+            await deleteObject(ref(storage, notice.filePath));
+          } catch (storageError) {
+            console.warn(
+              "Notice deleted, but attachment cleanup failed:",
+              storageError
+            );
+          }
+        }
+
+        setNotices((previous) =>
+          previous.filter((item) => item.id !== notice.id)
+        );
+
+        showToast("Notice deleted successfully.");
+      } catch (error) {
+        console.error("Error deleting notice:", error);
+        showToast("Could not delete this notice.", "error");
+      } finally {
+        closeConfirmModal();
+      }
+    }
+  });
+};
+
+  // --- ACTIONS ---
+  const saveEmployee = async (e) => {
+  e.preventDefault();
+
+  const safeName = (empForm.name || "").trim();
+  const safeEmail = (empForm.email || "").trim().toLowerCase();
+  const safeSection = (empForm.section || "").trim();
+
+  if (!safeName || !safeSection) {
+    return alert("Please fill in both Name and Section.");
+  }
+
+  if (
+    safeEmail &&
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeEmail)
+  ) {
+    return alert("Please enter a valid email address.");
+  }
+
+  const emailAlreadyUsed = employees.some(
+    (employee) =>
+      (employee.email || "").trim().toLowerCase() === safeEmail &&
+      safeEmail
+  );
+
+  if (emailAlreadyUsed) {
+    return alert("This email address is already assigned to another staff member.");
+  }
+
+  setIsLoading(true);
+
+  try {
+    const payload = {
+      name: safeName,
+      email: safeEmail,
+      designation: (empForm.designation || "").trim(),
+      section: safeSection,
+      supervisor: (empForm.supervisor || "").trim(),
+      status: "active"
+    };
+
+    const docRef = await addDoc(collection(db, "employees"), payload);
+
+    setEmployees((prev) => [
+      ...prev,
+      { id: docRef.id, ...payload }
+    ]);
+
+    setEmpForm({
+      name: "",
+      email: "",
+      designation: "",
+      section: "",
+      supervisor: ""
+    });
+
+    showToast("Staff registered successfully.");
+  } catch (error) {
+    console.error("Firebase write error:", error);
+    alert(`Could not save to Firebase: ${error.message}`);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   // NEW: Delete Employee
+const openEmployeeEmailModal = (employee) => {
+  setEmployeeEmailModal(employee);
+  setEmployeeEmailInput(employee.email || "");
+};
+
+const requestEmployeeEmailAccess = (employee) => {
+  // New email: open normally, no PIN required.
+  if (!employee.email) {
+    openEmployeeEmailModal(employee);
+    return;
+  }
+
+  // Existing email: require PIN before editing.
+  setEmployeeEmailPinInput("");
+  setEmployeeEmailPinModal(employee);
+};
+
+const confirmEmployeeEmailUpdatePin = () => {
+  if (employeeEmailPinInput !== "2391") {
+    showToast("Incorrect PIN. Email was not changed.", "error");
+    return;
+  }
+
+  const employee = employeeEmailPinModal;
+
+  setEmployeeEmailPinModal(null);
+  setEmployeeEmailPinInput("");
+
+  if (employee) {
+    openEmployeeEmailModal(employee);
+  }
+};
+
+const saveEmployeeEmail = async (e) => {
+  e.preventDefault();
+
+  const employee = employeeEmailModal;
+
+  if (!employee) return;
+
+  const safeEmail = (employeeEmailInput || "")
+    .trim()
+    .toLowerCase();
+
+  if (!safeEmail) {
+    return alert("Please enter an email address.");
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeEmail)) {
+    return alert("Please enter a valid email address.");
+  }
+
+  const emailAlreadyUsed = employees.some(
+    (item) =>
+      item.id !== employee.id &&
+      (item.email || "").trim().toLowerCase() === safeEmail
+  );
+
+  if (emailAlreadyUsed) {
+    return alert("This email address is already assigned to another staff member.");
+  }
+
+  try {
+    await setDoc(
+      doc(db, "employees", employee.id),
+      { email: safeEmail },
+      { merge: true }
+    );
+
+    setEmployees((prev) =>
+      prev.map((item) =>
+        item.id === employee.id
+          ? { ...item, email: safeEmail }
+          : item
+      )
+    );
+
+    setEmployeeEmailModal(null);
+    setEmployeeEmailInput("");
+
+    showToast(`Email updated for ${employee.name}.`);
+  } catch (error) {
+    console.error("Could not update employee email:", error);
+    showToast("Could not update employee email.", "error");
+  }
+};
+
 const toggleEmployeeStatus = (employee) => {
   setStatusPinInput("");
   setStatusPinModal({ employee });
@@ -1170,45 +1726,62 @@ const removeEmployee = async (id) => {
   });
 };
   const saveLeave = async (e) => {
-    e.preventDefault();
-    if (!leaveForm.employee || !leaveForm.start || !leaveForm.end) {
-      return alert("Please select employee, start date, and end date.");
-    }
-    if (leaveForm.end < leaveForm.start) {
-      return alert("End date cannot be before start date.");
-    }
-const hasOverlap = vagutheeRecords.some((record) => {
-  const samePerson =
-    (record.name || "").toLowerCase() === vagutheeForm.name.toLowerCase();
+  e.preventDefault();
 
-  const dateOverlap =
-    vagutheeForm.start <= record.end && record.start <= vagutheeForm.end;
+  if (!leaveForm.employee || !leaveForm.start || !leaveForm.end) {
+    return alert(
+      "Please select an employee, enter a start date, and enter either an end date or number of leave days."
+    );
+  }
 
-  return samePerson && dateOverlap;
-});
+  if (leaveForm.end < leaveForm.start) {
+    return alert("End date cannot be before start date.");
+  }
 
-if (hasOverlap) {
-  const proceed = window.confirm(
-    "This person already has an overlapping Vaguthee Imaam record in this period. Do you still want to save?"
+  const breakdown = getLeaveBreakdown(
+    leaveForm.start,
+    leaveForm.end
   );
 
-  if (!proceed) return;
-}
+  if (breakdown.leaveDays < 1) {
+    return alert(
+      "This leave period has no working leave days. Please check the selected dates."
+    );
+  }
 
-    setIsLoading(true);
-    try {
-      const payload = { employee: leaveForm.employee, start: leaveForm.start, end: leaveForm.end };
-      const docRef = await addDoc(collection(db, "leaves"), payload);
-      setLeaves((prev) => [...prev, { id: docRef.id, ...payload }]);
-      setLeaveForm({ employee: "", start: "", end: "" });
-      alert("Leave added successfully!");
-    } catch (error) {
-      console.error("Error saving leave:", error);
-      alert(`Could not save leave: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  setIsLoading(true);
+
+  try {
+    const payload = {
+      employee: leaveForm.employee,
+      start: leaveForm.start,
+      end: leaveForm.end,
+      totalCalendarDays: breakdown.totalCalendarDays,
+      leaveDays: breakdown.leaveDays
+    };
+
+    const docRef = await addDoc(collection(db, "leaves"), payload);
+
+    setLeaves((prev) => [
+      ...prev,
+      { id: docRef.id, ...payload }
+    ]);
+
+    setLeaveForm({
+      employee: "",
+      start: "",
+      end: "",
+      leaveDays: ""
+    });
+
+    showToast("Leave record added successfully.");
+  } catch (error) {
+    console.error("Error saving leave:", error);
+    alert(`Could not save leave: ${error.message}`);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
 const removeLeave = async (id) => {
   setDeletePinInput("");
@@ -1832,6 +2405,10 @@ const renderHukuruMiniCalendar = () => {
   // --- FILTERS ---
 const activeEmployees = employees.filter((emp) => emp.status !== "inactive");
 
+const activeEmployeesWithEmail = activeEmployees.filter(
+  (employee) => Boolean(normalizeEmail(employee.email))
+);
+
 const activeEmployeeNames = new Set(activeEmployees.map((emp) => emp.name));
 const filteredEmployees = employees.filter((e) => {
   const sectionMatch = !dirFilter.section || e.section === dirFilter.section;
@@ -1851,39 +2428,160 @@ const filteredLeaves = leaves.filter(
     activeEmployeeNames.has(l.employee) &&
     (l.employee || "").toLowerCase().includes(leaveSearch.toLowerCase())
 );
-const calculateLeaveDays = (start, end) => {
-  if (!start || !end) return 0;
 
-  const startDate = new Date(start);
-  const endDate = new Date(end);
+const noticeToday = getMaldivesDateString();
 
-  if (endDate < startDate) return 0;
+const visibleNoticeBoardNotices = [...notices]
+  .filter((notice) => {
+    const hasStarted =
+      !notice.publishDate ||
+      notice.publishDate <= noticeToday;
 
-  const holidaySet = new Set(publicHolidays.map((h) => h.date));
-  let count = 0;
+    const hasNotExpired =
+      !notice.expiryDate ||
+      notice.expiryDate >= noticeToday;
 
-  const current = new Date(startDate);
+    return hasStarted && hasNotExpired;
+  })
+  .filter((notice) => canCurrentUserSeeNotice(notice))
+  .filter((notice) => {
+    if (noticeFilter === "important") {
+      return (
+        notice.priority === "important" ||
+        notice.priority === "urgent"
+      );
+    }
+
+    if (noticeFilter === "pinned") {
+      return Boolean(notice.isPinned);
+    }
+
+    return true;
+  })
+  .sort((a, b) => {
+    if (Boolean(a.isPinned) !== Boolean(b.isPinned)) {
+      return a.isPinned ? -1 : 1;
+    }
+
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+
+const allNoticesForAdmin = useMemo(() => {
+  return [...notices].sort((a, b) => {
+    if (Boolean(a.isPinned) !== Boolean(b.isPinned)) {
+      return a.isPinned ? -1 : 1;
+    }
+
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+}, [notices]);
+
+const getLeaveBreakdown = (start, end) => {
+  if (!start || !end || end < start) {
+    return {
+      totalCalendarDays: 0,
+      leaveDays: 0
+    };
+  }
+
+  const current = new Date(`${start}T00:00:00`);
+  const endDate = new Date(`${end}T00:00:00`);
+
+  let totalCalendarDays = 0;
+  let leaveDays = 0;
 
   while (current <= endDate) {
-    const year = current.getFullYear();
-    const month = String(current.getMonth() + 1).padStart(2, "0");
-    const day = String(current.getDate()).padStart(2, "0");
-    const dateStr = `${year}-${month}-${day}`;
+    const dateStr = formatLocalDateString(current);
+    const dayOfWeek = current.getDay();
 
-    const dayOfWeek = current.getDay(); // 0=Sun, 5=Fri, 6=Sat
-    const isFriday = dayOfWeek === 5;
-    const isSaturday = dayOfWeek === 6;
-    const isHoliday = holidaySet.has(dateStr);
+    const isFriday = settings.excludeFriday && dayOfWeek === 5;
+    const isSaturday = settings.excludeSaturday && dayOfWeek === 6;
+    const isPublicHoliday = holidayDateSet.has(dateStr);
 
-    if (!isFriday && !isSaturday && !isHoliday) {
-      count++;
+    totalCalendarDays += 1;
+
+    if (!isFriday && !isSaturday && !isPublicHoliday) {
+      leaveDays += 1;
     }
 
     current.setDate(current.getDate() + 1);
   }
 
-  return count;
+  return {
+    totalCalendarDays,
+    leaveDays
+  };
 };
+
+const calculateLeaveDays = (start, end) => {
+  return getLeaveBreakdown(start, end).leaveDays;
+};
+
+const getLeaveEndFromWorkingDays = (start, leaveDays) => {
+  const requestedDays = Number(leaveDays);
+
+  if (!start || !Number.isInteger(requestedDays) || requestedDays < 1) {
+    return "";
+  }
+
+  const current = new Date(`${start}T00:00:00`);
+  let countedDays = 0;
+  let safetyCounter = 0;
+
+  while (countedDays < requestedDays && safetyCounter < 5000) {
+    const dateStr = formatLocalDateString(current);
+    const dayOfWeek = current.getDay();
+
+    const isFriday = settings.excludeFriday && dayOfWeek === 5;
+    const isSaturday = settings.excludeSaturday && dayOfWeek === 6;
+    const isPublicHoliday = holidayDateSet.has(dateStr);
+
+    if (!isFriday && !isSaturday && !isPublicHoliday) {
+      countedDays += 1;
+
+      if (countedDays === requestedDays) {
+        return formatLocalDateString(current);
+      }
+    }
+
+    current.setDate(current.getDate() + 1);
+    safetyCounter += 1;
+  }
+
+  return "";
+};
+
+const handleLeaveStartChange = (start) => {
+  setLeaveForm((prev) => ({
+    ...prev,
+    start,
+    end: prev.leaveDays
+      ? getLeaveEndFromWorkingDays(start, prev.leaveDays)
+      : prev.end
+  }));
+};
+
+const handleLeaveEndChange = (end) => {
+  setLeaveForm((prev) => ({
+    ...prev,
+    end,
+    leaveDays: ""
+  }));
+};
+
+const handleLeaveDaysChange = (leaveDays) => {
+  setLeaveForm((prev) => ({
+    ...prev,
+    leaveDays,
+    end: getLeaveEndFromWorkingDays(prev.start, leaveDays)
+  }));
+};
+
+const leaveFormSummary = getLeaveBreakdown(
+  leaveForm.start,
+  leaveForm.end
+);
+
 const getNextWorkingDay = (endDate) => {
   if (!endDate) return "";
 
@@ -2179,9 +2877,24 @@ return (
   </div>
 </div>
         <ul className="nav-menu">
-          <li className={activeTab === "home" ? "active" : ""} onClick={() => closeSidebarAndGo("home")}>Home</li>
-          <li className={activeTab === "dashboard" ? "active" : ""} onClick={() => closeSidebarAndGo("dashboard")}>Visual Board</li>
-          <li className={activeTab === "directory" ? "active" : ""} onClick={() => closeSidebarAndGo("directory")}>Staff Directory</li>
+          <li className={activeTab === "home" ? "active" : ""} onClick={() => closeSidebarAndGo("home")}>
+  Home
+</li>
+
+<li className={activeTab === "dashboard" ? "active" : ""} onClick={() => closeSidebarAndGo("dashboard")}>
+  Visual Board
+</li>
+
+<li
+  className={activeTab === "notice-board" ? "active" : ""}
+  onClick={() => closeSidebarAndGo("notice-board")}
+>
+  Notice Board
+</li>
+
+<li className={activeTab === "directory" ? "active" : ""} onClick={() => closeSidebarAndGo("directory")}>
+  Staff Directory
+</li>
           <li className={activeTab === "imaam-directory" ? "active" : ""} onClick={() => closeSidebarAndGo("imaam-directory")}>Imaam Directory</li>
           <li className={activeTab === "records" ? "active" : ""} onClick={() => closeSidebarAndGo("records")}>Leave Records</li>
           <li className={activeTab === "staff-on-leave" ? "active" : ""} onClick={() => closeSidebarAndGo("staff-on-leave")}>Staff on Leave</li>
@@ -2709,6 +3422,625 @@ return (
     )}
   </div>
 )}
+
+{/* NOTICE BOARD TAB */}
+{activeTab === "notice-board" && (
+  <div className="notice-board-page">
+    <section className="notice-board-hero">
+      <div className="notice-board-hero-copy">
+        <span className="notice-board-kicker">
+          FUNADHOO COUNCIL
+        </span>
+
+        <h2>Council Notice Board</h2>
+
+        <p>
+          Official council updates, announcements and staff communication in
+          one organised space.
+        </p>
+      </div>
+
+      <div className="notice-board-hero-right">
+        <button
+          type="button"
+          className={`notice-admin-btn ${
+            noticeAdminUnlocked ? "unlocked" : ""
+          }`}
+          onClick={() => setShowNoticeAdminPanel(true)}
+        >
+          {noticeAdminUnlocked
+            ? "⚙ Notice Admin Unlocked"
+            : "⚙ Notice Board Admin"}
+        </button>
+
+        <div className="notice-board-date-card">
+          <span>Today</span>
+
+          <strong>
+            {new Date().toLocaleDateString("en-GB", {
+              timeZone: "Indian/Maldives",
+              weekday: "long",
+              day: "2-digit",
+              month: "long",
+              year: "numeric"
+            })}
+          </strong>
+        </div>
+      </div>
+    </section>
+
+    {showNoticeAdminPanel && !noticeAdminUnlocked && (
+      <section className="notice-admin-access">
+        <div>
+          <span className="notice-admin-access-kicker">
+            RESTRICTED AREA
+          </span>
+
+          <h3>Notice Board Admin Access</h3>
+
+          <p>
+            Unlock publishing, file uploads, staff visibility and notice
+            management.
+          </p>
+        </div>
+
+        <div className="notice-admin-access-form">
+          <input
+            type="password"
+            placeholder="Enter Notice Board password"
+            value={noticeAdminPassword}
+            onChange={(e) => setNoticeAdminPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                unlockNoticeAdmin();
+              }
+            }}
+          />
+
+          <div className="notice-admin-access-actions">
+            <button
+              type="button"
+              className="secondary-btn-sm"
+              onClick={() => {
+                setNoticeAdminPassword("");
+                setShowNoticeAdminPanel(false);
+              }}
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              className="primary-btn-sm"
+              onClick={unlockNoticeAdmin}
+            >
+              Unlock Admin
+            </button>
+          </div>
+        </div>
+      </section>
+    )}
+
+    {noticeAdminUnlocked && (
+      <section className="notice-admin-panel">
+        <div className="notice-admin-panel-header">
+          <div>
+            <span className="notice-admin-access-kicker">
+              ADMIN MODE ACTIVE
+            </span>
+
+            <h3>Publish and Manage Notices</h3>
+
+            <p>
+              Publish notices, upload attachments, select staff visibility and
+              remove old notices.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="secondary-btn-sm"
+            onClick={exitNoticeAdminMode}
+          >
+            Exit Admin Mode
+          </button>
+        </div>
+
+        <div className="notice-admin-grid">
+          <form
+            className="notice-publish-form"
+            onSubmit={publishNotice}
+          >
+            <div className="notice-form-title-row">
+              <div>
+                <span className="notice-admin-access-kicker">
+                  CREATE NOTICE
+                </span>
+
+                <h3>Publish New Notice</h3>
+              </div>
+
+              <span className="notice-draft-badge">
+                Draft
+              </span>
+            </div>
+
+            <div className="form-stack">
+              <label className="notice-field-label">
+                Notice Title *
+                <input
+                  required
+                  type="text"
+                  placeholder="Example: Eid Holiday Office Closure"
+                  value={noticeForm.title}
+                  onChange={(e) =>
+                    setNoticeForm({
+                      ...noticeForm,
+                      title: e.target.value
+                    })
+                  }
+                />
+              </label>
+
+              <label className="notice-field-label">
+                Description
+                <textarea
+                  className="notice-description-input"
+                  rows="5"
+                  placeholder="Optional details displayed below the image or file."
+                  value={noticeForm.description}
+                  onChange={(e) =>
+                    setNoticeForm({
+                      ...noticeForm,
+                      description: e.target.value
+                    })
+                  }
+                />
+              </label>
+
+              <div className="notice-form-two-columns">
+                <label className="notice-field-label">
+                  Priority
+                  <select
+                    value={noticeForm.priority}
+                    onChange={(e) =>
+                      setNoticeForm({
+                        ...noticeForm,
+                        priority: e.target.value
+                      })
+                    }
+                  >
+                    <option value="normal">Normal Notice</option>
+                    <option value="important">Important</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </label>
+
+                <label className="notice-field-label">
+  Staff Visibility
+
+  <select
+    value={noticeForm.visibility}
+    onChange={(e) =>
+      setNoticeForm({
+        ...noticeForm,
+        visibility: e.target.value,
+        visibleStaffEmails: [],
+        visibleStaffNames: [],
+        visibleGroupId: "",
+        visibleGroupName: ""
+      })
+    }
+  >
+    <option value="all">All Active Staff</option>
+    <option value="staff">Selected Staff</option>
+    <option value="group">Selected Staff Group</option>
+  </select>
+</label>
+</div>
+
+{noticeForm.visibility === "staff" && (
+  <div className="notice-staff-target-section">
+    <div className="notice-target-heading">
+      <strong>Select Staff</strong>
+
+      <span>
+        {noticeForm.visibleStaffEmails.length} selected
+      </span>
+    </div>
+
+    <div className="notice-staff-target-list">
+      {activeEmployeesWithEmail.map((employee) => (
+        <label
+          className="notice-staff-target-row"
+          key={employee.id}
+        >
+          <input
+            type="checkbox"
+            checked={noticeForm.visibleStaffEmails.includes(
+              normalizeEmail(employee.email)
+            )}
+            onChange={() => toggleNoticeStaffSelection(employee)}
+          />
+
+          <span>
+            <strong>{employee.name}</strong>
+            <small>{employee.email}</small>
+          </span>
+        </label>
+      ))}
+
+      {activeEmployeesWithEmail.length === 0 && (
+        <p className="muted">
+          No active staff with email addresses are available yet.
+        </p>
+      )}
+    </div>
+
+    {activeEmployees.length > activeEmployeesWithEmail.length && (
+      <p className="muted mt-2">
+        Some active staff are not listed because their email address has not
+        been added in Staff Directory yet.
+      </p>
+    )}
+  </div>
+)}
+
+{noticeForm.visibility === "group" && (
+  <label className="notice-field-label">
+    Staff Group *
+
+    <select
+      required
+      value={noticeForm.visibleGroupId}
+      onChange={(e) => {
+        const selectedGroup = staffGroups.find(
+          (group) => group.id === e.target.value
+        );
+
+        setNoticeForm({
+          ...noticeForm,
+          visibleGroupId: e.target.value,
+          visibleGroupName: selectedGroup?.name || ""
+        });
+      }}
+    >
+      <option value="">Select staff group</option>
+
+      {staffGroups.map((group) => (
+        <option key={group.id} value={group.id}>
+          {group.name} ({group.members?.length || 0} staff)
+        </option>
+      ))}
+    </select>
+  </label>
+)}
+
+              <label className="notice-file-upload-box">
+                <input
+                  key={noticeUploadKey}
+                  type="file"
+                  accept="image/*,.pdf,.doc,.docx"
+                  onChange={(e) =>
+                    setNoticeUploadFile(
+                      e.target.files?.[0] || null
+                    )
+                  }
+                />
+
+                <span className="notice-file-upload-icon">
+                  📎
+                </span>
+
+                <span>
+                  <strong>
+                    {noticeUploadFile
+                      ? noticeUploadFile.name
+                      : "Attach image, PDF or Word file"}
+                  </strong>
+
+                  <small>
+                    {noticeUploadFile
+                      ? `${getNoticeFileTypeLabel(
+                          noticeUploadFile.type
+                        )} • ${formatNoticeFileSize(
+                          noticeUploadFile.size
+                        )}`
+                      : "Optional • Maximum 10 MB"}
+                  </small>
+                </span>
+              </label>
+
+              <div className="notice-form-two-columns">
+                <label className="notice-field-label">
+                  Publish Date
+                  <input
+                    type="date"
+                    value={noticeForm.publishDate}
+                    onChange={(e) =>
+                      setNoticeForm({
+                        ...noticeForm,
+                        publishDate: e.target.value
+                      })
+                    }
+                  />
+                </label>
+
+                <label className="notice-field-label">
+                  Expiry Date
+                  <input
+                    type="date"
+                    value={noticeForm.expiryDate}
+                    onChange={(e) =>
+                      setNoticeForm({
+                        ...noticeForm,
+                        expiryDate: e.target.value
+                      })
+                    }
+                  />
+                </label>
+              </div>
+
+              <label className="notice-check-row">
+                <input
+                  type="checkbox"
+                  checked={noticeForm.isPinned}
+                  onChange={(e) =>
+                    setNoticeForm({
+                      ...noticeForm,
+                      isPinned: e.target.checked
+                    })
+                  }
+                />
+
+                <span>
+                  <strong>Pin this notice to the top</strong>
+                  <small>
+                    Pinned notices always appear before normal notices.
+                  </small>
+                </span>
+              </label>
+
+              <button
+                type="submit"
+                className="primary-btn"
+                disabled={isNoticeSaving}
+              >
+                {isNoticeSaving
+                  ? "Publishing Notice..."
+                  : "Publish Notice"}
+              </button>
+            </div>
+          </form>
+
+          <section className="notice-admin-manage">
+            <div className="notice-form-title-row">
+              <div>
+                <span className="notice-admin-access-kicker">
+                  MANAGEMENT
+                </span>
+
+                <h3>Published Notices</h3>
+              </div>
+
+              <span className="notice-manage-count">
+                {allNoticesForAdmin.length}
+              </span>
+            </div>
+
+            <div className="notice-manage-list">
+              {allNoticesForAdmin.map((notice) => (
+                <div className="notice-manage-row" key={notice.id}>
+                  <div className="notice-manage-row-main">
+                    <div className="notice-manage-row-badges">
+                      <span
+                        className={`notice-priority-badge ${
+                          notice.priority || "normal"
+                        }`}
+                      >
+                        {getNoticePriorityLabel(notice.priority)}
+                      </span>
+
+                      {notice.isPinned && (
+                        <span className="notice-pinned-badge">
+                          Pinned
+                        </span>
+                      )}
+                    </div>
+
+                    <strong>{notice.title}</strong>
+
+                    <small>
+                      {formatNoticeDate(notice.publishDate)} •{" "}
+                      {getNoticeVisibilityLabel(notice)}
+                    </small>
+
+                    {notice.fileName && (
+                      <small className="notice-manage-file">
+                        📎 {notice.fileName}
+                      </small>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="text-danger"
+                    onClick={() => removeNotice(notice)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+
+              {allNoticesForAdmin.length === 0 && (
+                <div className="notice-manage-empty">
+                  <span>📌</span>
+                  <p>No published notices yet.</p>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      </section>
+    )}
+
+    <section className="notice-board-toolbar">
+      <div className="notice-board-filter-list">
+        {[
+          { id: "all", label: "All Notices" },
+          { id: "important", label: "Important" },
+          { id: "pinned", label: "Pinned" }
+        ].map((filter) => (
+          <button
+            type="button"
+            key={filter.id}
+            className={`notice-board-filter ${
+              noticeFilter === filter.id ? "active" : ""
+            }`}
+            onClick={() => setNoticeFilter(filter.id)}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="notice-board-ready-status">
+        <span className="notice-board-ready-dot"></span>
+        {visibleNoticeBoardNotices.length} Live Notice
+        {visibleNoticeBoardNotices.length === 1 ? "" : "s"}
+      </div>
+    </section>
+
+    {visibleNoticeBoardNotices.length === 0 ? (
+      <section className="notice-board-empty">
+        <div className="notice-board-empty-icon">
+          <span>📌</span>
+        </div>
+
+        <span className="notice-board-empty-label">
+          NOTICE BOARD
+        </span>
+
+        <h3>No notices available</h3>
+
+        <p>
+          There are currently no notices available for your staff visibility
+          setting.
+        </p>
+      </section>
+    ) : (
+      <section className="notice-feed">
+        {visibleNoticeBoardNotices.map((notice) => (
+          <article
+            className={`notice-card ${
+              notice.isPinned ? "notice-card-pinned" : ""
+            }`}
+            key={notice.id}
+          >
+            <div className="notice-card-topline">
+              <div className="notice-card-badges">
+                <span
+                  className={`notice-priority-badge ${
+                    notice.priority || "normal"
+                  }`}
+                >
+                  {getNoticePriorityLabel(notice.priority)}
+                </span>
+
+                {notice.isPinned && (
+                  <span className="notice-pinned-badge">
+                    📌 Pinned
+                  </span>
+                )}
+              </div>
+
+              <span className="notice-card-date">
+                {formatNoticeDate(notice.publishDate)}
+              </span>
+            </div>
+
+            <h3 className="notice-card-title">
+              {notice.title}
+            </h3>
+
+            {notice.fileUrl && isNoticeImage(notice) && (
+              <a
+                className="notice-image-link"
+                href={notice.fileUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <img
+                  src={notice.fileUrl}
+                  alt={notice.title}
+                  className="notice-card-image"
+                />
+              </a>
+            )}
+
+            {notice.fileUrl && !isNoticeImage(notice) && (
+              <a
+                className="notice-file-card"
+                href={notice.fileUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <span className="notice-file-card-icon">
+                  {notice.fileType === "application/pdf"
+                    ? "📄"
+                    : "📎"}
+                </span>
+
+                <span className="notice-file-card-copy">
+                  <strong>
+                    {notice.fileName || "Open Attachment"}
+                  </strong>
+
+                  <small>
+                    {getNoticeFileTypeLabel(notice.fileType)}
+                    {notice.fileSize
+                      ? ` • ${formatNoticeFileSize(
+                          notice.fileSize
+                        )}`
+                      : ""}
+                  </small>
+                </span>
+
+                <span className="notice-file-open-label">
+                  Open
+                </span>
+              </a>
+            )}
+
+            {notice.description && (
+              <p className="notice-card-description">
+                {notice.description}
+              </p>
+            )}
+
+            <div className="notice-card-footer">
+              <span>
+                Visible to:{" "}
+                <strong>
+                  {getNoticeVisibilityLabel(notice)}
+                </strong>
+              </span>
+
+              {notice.expiryDate && (
+                <span>
+                  Expires:{" "}
+                  <strong>
+                    {formatNoticeDate(notice.expiryDate)}
+                  </strong>
+                </span>
+              )}
+            </div>
+          </article>
+        ))}
+      </section>
+    )}
+  </div>
+)}
           {/* DASHBOARD TAB */}
           {activeTab === "dashboard" && (
             <div className="admin-grid">
@@ -2739,8 +4071,31 @@ return (
               <form className="panel" onSubmit={saveEmployee}>
                 <h2>Staff Registration</h2>
                 <div className="form-stack">
-                  <input required placeholder="Name *" value={empForm.name} onChange={(e) => setEmpForm({ ...empForm, name: e.target.value })} />
-                  <input placeholder="Designation" value={empForm.designation} onChange={(e) => setEmpForm({ ...empForm, designation: e.target.value })} />
+                  <input
+  required
+  placeholder="Name *"
+  value={empForm.name}
+  onChange={(e) =>
+    setEmpForm({ ...empForm, name: e.target.value })
+  }
+/>
+
+<input
+  type="email"
+  placeholder="Email Address (for Notice Board visibility)"
+  value={empForm.email}
+  onChange={(e) =>
+    setEmpForm({ ...empForm, email: e.target.value })
+  }
+/>
+
+<input
+  placeholder="Designation"
+  value={empForm.designation}
+  onChange={(e) =>
+    setEmpForm({ ...empForm, designation: e.target.value })
+  }
+/>
                   <input required placeholder="Section (e.g. IT, HR) *" value={empForm.section} onChange={(e) => setEmpForm({ ...empForm, section: e.target.value })} />
                   <input placeholder="Supervisor Name" value={empForm.supervisor} onChange={(e) => setEmpForm({ ...empForm, supervisor: e.target.value })} />
                   <button type="submit" className="primary-btn" disabled={isLoading}>
@@ -2750,21 +4105,89 @@ return (
               </form>
 
               <form className="panel" onSubmit={saveLeave}>
-                <h2>Add Leave Record</h2>
-                <div className="form-stack">
-                  <select required value={leaveForm.employee} onChange={(e) => setLeaveForm({ ...leaveForm, employee: e.target.value })}>
-                    <option value="">Select employee *</option>
-                    {activeEmployees.map((emp) => (
-  <option key={emp.id} value={emp.name}>{emp.name}</option>
-))}
-                  </select>
-                  <input required type="date" value={leaveForm.start} onChange={(e) => setLeaveForm({ ...leaveForm, start: e.target.value })} />
-                  <input required type="date" value={leaveForm.end} onChange={(e) => setLeaveForm({ ...leaveForm, end: e.target.value })} />
-                  <button type="submit" className="primary-btn" disabled={isLoading}>
-                    {isLoading ? "Saving..." : "Save Leave"}
-                  </button>
-                </div>
-              </form>
+  <h2>Add Leave Record</h2>
+
+  <div className="form-stack">
+    <select
+      required
+      value={leaveForm.employee}
+      onChange={(e) =>
+        setLeaveForm({
+          ...leaveForm,
+          employee: e.target.value
+        })
+      }
+    >
+      <option value="">Select employee *</option>
+
+      {activeEmployees.map((emp) => (
+        <option key={emp.id} value={emp.name}>
+          {emp.name}
+        </option>
+      ))}
+    </select>
+
+    <label className="muted">Leave Start Date</label>
+
+    <input
+      required
+      type="date"
+      value={leaveForm.start}
+      onChange={(e) => handleLeaveStartChange(e.target.value)}
+    />
+
+    <label className="muted">Leave End Date</label>
+
+    <input
+      type="date"
+      value={leaveForm.end}
+      onChange={(e) => handleLeaveEndChange(e.target.value)}
+    />
+
+    <p className="muted text-center" style={{ margin: "0" }}>
+      — OR —
+    </p>
+
+    <label className="muted">Number of Leave Days</label>
+
+    <input
+      type="number"
+      min="1"
+      step="1"
+      inputMode="numeric"
+      placeholder="Example: 5"
+      disabled={!leaveForm.start}
+      value={leaveForm.leaveDays}
+      onChange={(e) => handleLeaveDaysChange(e.target.value)}
+    />
+
+    <p className="muted" style={{ marginTop: "-4px" }}>
+      Fridays, Saturdays and saved public holidays are excluded automatically.
+    </p>
+
+    {leaveForm.start && leaveForm.end && (
+      <div className="closest-list mt-2">
+        <div className="closest-item">
+          <span>Total Calendar Days</span>
+          <strong>{leaveFormSummary.totalCalendarDays} days</strong>
+        </div>
+
+        <div className="closest-item">
+          <strong>Number of Leave Days</strong>
+          <strong>{leaveFormSummary.leaveDays} days</strong>
+        </div>
+      </div>
+    )}
+
+    <button
+      type="submit"
+      className="primary-btn"
+      disabled={isLoading}
+    >
+      {isLoading ? "Saving..." : "Save Leave"}
+    </button>
+  </div>
+</form>
 
               <div className="panel">
                 <form onSubmit={addHoliday}>
@@ -2846,6 +4269,7 @@ return (
         <thead>
           <tr>
             <th>Name</th>
+<th>Email</th>
 <th>Designation</th>
 <th>Section</th>
 <th>Supervisor</th>
@@ -2866,7 +4290,16 @@ return (
     {e.name}
   </button>
 </td>
-              <td>{e.designation || "—"}</td>
+
+<td>
+  {e.email ? (
+    e.email
+  ) : (
+    <span className="muted">Not added</span>
+  )}
+</td>
+
+<td>{e.designation || "—"}</td>
               <td>
   <span className="badge">{e.section}</span>
 </td>
@@ -2877,28 +4310,38 @@ return (
   </span>
 </td>
 <td>
-  <div className="action-flex">
-    <button
-      className="secondary-btn-sm"
-      onClick={() => toggleEmployeeStatus(e)}
-    >
-      {e.status === "inactive" ? "Activate" : "Deactivate"}
-    </button>
+  <div
+  className="action-flex"
+  style={{ flexWrap: "wrap" }}
+>
+  <button
+  className="secondary-btn-sm"
+  onClick={() => requestEmployeeEmailAccess(e)}
+>
+  {e.email ? "Update Email" : "Add Email"}
+</button>
 
-    <button
-      className="text-danger"
-      onClick={() => removeEmployee(e.id)}
-    >
-      Delete
-    </button>
-  </div>
+  <button
+    className="secondary-btn-sm"
+    onClick={() => toggleEmployeeStatus(e)}
+  >
+    {e.status === "inactive" ? "Activate" : "Deactivate"}
+  </button>
+
+  <button
+    className="text-danger"
+    onClick={() => removeEmployee(e.id)}
+  >
+    Delete
+  </button>
+</div>
 </td>
 </tr>
           ))}
 
           {filteredEmployees.length === 0 && (
             <tr>
-              <td colSpan="6" className="muted">
+              <td colSpan="7" className="muted">
                 No staff found.
               </td>
             </tr>
@@ -4402,6 +5845,121 @@ Unlock Hukuru 2026
     </div>
   </div>
 )}
+
+{employeeEmailPinModal && (
+  <div
+    className="confirm-overlay"
+    onClick={() => {
+      setEmployeeEmailPinModal(null);
+      setEmployeeEmailPinInput("");
+    }}
+  >
+    <div
+      className="confirm-box"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="confirm-icon">🔐</div>
+
+      <h3>Email Update Authorization</h3>
+
+      <p>
+        Enter the PIN to update the email address for{" "}
+        <strong>{employeeEmailPinModal.name}</strong>.
+      </p>
+
+      <input
+        autoFocus
+        type="password"
+        inputMode="numeric"
+        maxLength="4"
+        placeholder="Enter PIN"
+        value={employeeEmailPinInput}
+        onChange={(e) => setEmployeeEmailPinInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            confirmEmployeeEmailUpdatePin();
+          }
+        }}
+        className="pin-input"
+      />
+
+      <div className="confirm-actions">
+        <button
+          type="button"
+          className="confirm-cancel"
+          onClick={() => {
+            setEmployeeEmailPinModal(null);
+            setEmployeeEmailPinInput("");
+          }}
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          className="confirm-delete"
+          onClick={confirmEmployeeEmailUpdatePin}
+        >
+          Verify PIN
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{employeeEmailModal && (
+  <div
+    className="confirm-overlay"
+    onClick={() => {
+      setEmployeeEmailModal(null);
+      setEmployeeEmailInput("");
+    }}
+  >
+    <form
+      className="confirm-box"
+      onSubmit={saveEmployeeEmail}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="confirm-icon">✉</div>
+
+      <h3>Set Staff Email</h3>
+
+      <p>
+        Add the login email used by{" "}
+        <strong>{employeeEmailModal.name}</strong>.
+      </p>
+
+      <input
+        autoFocus
+        required
+        type="email"
+        placeholder="staff@email.com"
+        value={employeeEmailInput}
+        onChange={(e) => setEmployeeEmailInput(e.target.value)}
+      />
+
+      <div className="confirm-actions">
+        <button
+          type="button"
+          className="confirm-cancel"
+          onClick={() => {
+            setEmployeeEmailModal(null);
+            setEmployeeEmailInput("");
+          }}
+        >
+          Cancel
+        </button>
+
+        <button
+          type="submit"
+          className="primary-btn-sm"
+        >
+          Save Email
+        </button>
+      </div>
+    </form>
+  </div>
+)}
 {employeeProfile && (
   <div className="presence-popup-overlay" onClick={() => setEmployeeProfile(null)}>
     <div className="employee-profile-box" onClick={(e) => e.stopPropagation()}>
@@ -4544,48 +6102,6 @@ const overlapInfo = getOverlapRange(
   o.end
 );
 
-if (!user) {
-  return (
-    <div className="login-page">
-      <div className="login-card">
-        <div className="login-logo">
-          <img src={logo} alt="Funadhoo Council Logo" />
-        </div>
-
-        <h1>Funadhoo Council</h1>
-        <p>Leave Management System</p>
-
-        <form onSubmit={handleLogin} className="login-form">
-          <input
-            type="email"
-            placeholder="Email or username"
-            value={loginForm.email}
-            onChange={(e) =>
-              setLoginForm({ ...loginForm, email: e.target.value })
-            }
-          />
-
-          <input
-            type="password"
-            placeholder="Password"
-            value={loginForm.password}
-            onChange={(e) =>
-              setLoginForm({ ...loginForm, password: e.target.value })
-            }
-          />
-
-          {loginError && <div className="login-error">{loginError}</div>}
-
-          <button type="submit" disabled={loginLoading}>
-            {loginLoading ? "Signing in..." : "Login"}
-          </button>
-        </form>
-
-        <small>Authorized access only</small>
-      </div>
-    </div>
-  );
-}
   return (
     <li key={o.id} className="overlap-item-row">
       <div>
