@@ -3094,66 +3094,137 @@ return (
   </div>
 </div>
         <ul className="nav-menu">
-          <li className={activeTab === "home" ? "active" : ""} onClick={() => closeSidebarAndGo("home")}>
-  Home
-</li>
+  <li className="nav-label">Overview</li>
 
-<li className={activeTab === "dashboard" ? "active" : ""} onClick={() => closeSidebarAndGo("dashboard")}>
-  Visual Board
-</li>
+  <li
+    className={activeTab === "home" ? "active" : ""}
+    onClick={() => closeSidebarAndGo("home")}
+  >
+    Home
+  </li>
 
-<li
-  className={activeTab === "notice-board" ? "active" : ""}
-  onClick={() => closeSidebarAndGo("notice-board")}
->
-  Notice Board
-</li>
+  <li
+    className={activeTab === "dashboard" ? "active" : ""}
+    onClick={() => closeSidebarAndGo("dashboard")}
+  >
+    Visual Board
+  </li>
 
-<li className={activeTab === "directory" ? "active" : ""} onClick={() => closeSidebarAndGo("directory")}>
-  Staff Directory
-</li>
-          <li className={activeTab === "imaam-directory" ? "active" : ""} onClick={() => closeSidebarAndGo("imaam-directory")}>Imaam Directory</li>
-          <li className={activeTab === "records" ? "active" : ""} onClick={() => closeSidebarAndGo("records")}>Leave Records</li>
-          <li className={activeTab === "staff-on-leave" ? "active" : ""} onClick={() => closeSidebarAndGo("staff-on-leave")}>Staff on Leave</li>
-          <li className={activeTab === "leave-trend" ? "active" : ""} onClick={() => closeSidebarAndGo("leave-trend")}>Leave Trend</li>
-          <li className={activeTab === "yaumiyya" ? "active" : ""} onClick={() => closeSidebarAndGo("yaumiyya")}>Yaumiyya</li>
-          <li className={activeTab === "vaguthee-imaam" ? "active" : ""} onClick={() => closeSidebarAndGo("vaguthee-imaam")}>
-  Vaguthee Imaam
-</li>
-          <li className={activeTab === "hukuru-2026" ? "active" : ""} onClick={() => closeSidebarAndGo("hukuru-2026")}>Hukuru 2026</li>
-          <li className="nav-label">Administration</li>
-          <li
-  className={activeTab === "attendance" ? "active" : ""}
-  onClick={() => closeSidebarAndGo("attendance")}
->
-  Attendance
-</li>
-<li
-  className={activeTab === "presence-board" ? "active" : ""}
-  onClick={() => closeSidebarAndGo("presence-board")}
->
-  Presence Board
-</li>
-<li
-  className={activeTab === "attendance-settings" ? "active" : ""}
-  onClick={() => closeSidebarAndGo("attendance-settings")}
->
-  Attendance Settings
-</li>
-<li
-  className={activeTab === "groups" ? "active" : ""}
-  onClick={() => closeSidebarAndGo("groups")}
->
-  Staff Groups
-</li>
+  <li
+    className={activeTab === "notice-board" ? "active" : ""}
+    onClick={() => closeSidebarAndGo("notice-board")}
+  >
+    Notice Board
+  </li>
 
-<li
-  className={activeTab === "reports" ? "active" : ""}
-  onClick={() => closeSidebarAndGo("reports")}
->
-  Reports
-</li>          <li className={activeTab === "admin" ? "active" : ""} onClick={() => closeSidebarAndGo("admin")}>Settings & Staff</li>
-        </ul>
+  <li className="nav-label">Staff &amp; Structure</li>
+
+  <li
+    className={activeTab === "directory" ? "active" : ""}
+    onClick={() => closeSidebarAndGo("directory")}
+  >
+    Staff Directory
+  </li>
+
+  <li
+    className={activeTab === "groups" ? "active" : ""}
+    onClick={() => closeSidebarAndGo("groups")}
+  >
+    Staff Groups
+  </li>
+
+  <li
+    className={activeTab === "admin" ? "active" : ""}
+    onClick={() => closeSidebarAndGo("admin")}
+  >
+    Staff Setup
+  </li>
+
+  <li className="nav-label">Leave Management</li>
+
+  <li
+    className={activeTab === "records" ? "active" : ""}
+    onClick={() => closeSidebarAndGo("records")}
+  >
+    Leave Records
+  </li>
+
+  <li
+    className={activeTab === "staff-on-leave" ? "active" : ""}
+    onClick={() => closeSidebarAndGo("staff-on-leave")}
+  >
+    Staff on Leave
+  </li>
+
+  <li
+    className={activeTab === "leave-trend" ? "active" : ""}
+    onClick={() => closeSidebarAndGo("leave-trend")}
+  >
+    Leave Trend
+  </li>
+
+  <li
+    className={activeTab === "yaumiyya" ? "active" : ""}
+    onClick={() => closeSidebarAndGo("yaumiyya")}
+  >
+    Yaumiyya
+  </li>
+
+  <li className="nav-label">Attendance</li>
+
+  <li
+    className={activeTab === "attendance" ? "active" : ""}
+    onClick={() => closeSidebarAndGo("attendance")}
+  >
+    Attendance
+  </li>
+
+  <li
+    className={activeTab === "presence-board" ? "active" : ""}
+    onClick={() => closeSidebarAndGo("presence-board")}
+  >
+    Presence Board
+  </li>
+
+  <li
+    className={activeTab === "attendance-settings" ? "active" : ""}
+    onClick={() => closeSidebarAndGo("attendance-settings")}
+  >
+    Attendance Settings
+  </li>
+
+  <li className="nav-label">Mosque Services</li>
+
+  <li
+    className={activeTab === "imaam-directory" ? "active" : ""}
+    onClick={() => closeSidebarAndGo("imaam-directory")}
+  >
+    Imaam Directory
+  </li>
+
+  <li
+    className={activeTab === "vaguthee-imaam" ? "active" : ""}
+    onClick={() => closeSidebarAndGo("vaguthee-imaam")}
+  >
+    Vaguthee Imaam
+  </li>
+
+  <li
+    className={activeTab === "hukuru-2026" ? "active" : ""}
+    onClick={() => closeSidebarAndGo("hukuru-2026")}
+  >
+    Friday Prayer Schedule
+  </li>
+
+  <li className="nav-label">Reports</li>
+
+  <li
+    className={activeTab === "reports" ? "active" : ""}
+    onClick={() => closeSidebarAndGo("reports")}
+  >
+    Reports
+  </li>
+</ul>
       </nav>
 
       <main className="main-content">
