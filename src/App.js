@@ -3,7 +3,17 @@ import React, { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import { animate, stagger } from "animejs";
 import { db } from "./firebase";
-import { collection, addDoc, getDocs, deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  doc,
+  getDoc,
+  setDoc,
+  writeBatch
+} from "firebase/firestore";
+
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { auth } from "./firebase";
@@ -116,6 +126,12 @@ function App() {
   const [employeeEmailInput, setEmployeeEmailInput] = useState("");
 
   const [employeeEmailPinModal, setEmployeeEmailPinModal] = useState(null);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
+
+  const [bulkSupervisorModal, setBulkSupervisorModal] = useState(false);
+  const [bulkSupervisorId, setBulkSupervisorId] = useState("");
+  const [bulkSupervisorPinInput, setBulkSupervisorPinInput] = useState("");
+  const [isBulkSupervisorSaving, setIsBulkSupervisorSaving] = useState(false);
   const [employeeEmailPinInput, setEmployeeEmailPinInput] = useState("");
   const [notices, setNotices] = useState([]);
   const [noticeFilter, setNoticeFilter] = useState("all");
@@ -598,7 +614,7 @@ const [yaumiyyaRecord, setYaumiyyaRecord] = useState({
   email: "",
   designation: "",
   section: "",
-  supervisor: ""
+  supervisorId: ""
 });
 
   const [leaveForm, setLeaveForm] = useState({
@@ -1131,6 +1147,43 @@ const normalizeNoticeName = (value) => {
   return (value || "").trim().toLowerCase();
 };
 
+const getSupervisorDisplayName = (employee) => {
+  return employee?.supervisorName || employee?.supervisor || "";
+};
+
+const wouldCreateSupervisorCycle = (
+  employeeId,
+  proposedSupervisorId
+) => {
+  if (!employeeId || !proposedSupervisorId) {
+    return false;
+  }
+
+  const employeesById = new Map(
+    employees.map((employee) => [employee.id, employee])
+  );
+
+  let currentSupervisorId = proposedSupervisorId;
+  const checkedIds = new Set();
+
+  while (currentSupervisorId) {
+    if (currentSupervisorId === employeeId) {
+      return true;
+    }
+
+    if (checkedIds.has(currentSupervisorId)) {
+      return true;
+    }
+
+    checkedIds.add(currentSupervisorId);
+
+    const supervisor = employeesById.get(currentSupervisorId);
+
+    currentSupervisorId = supervisor?.supervisorId || "";
+  }
+
+  return false;
+};
 const normalizeEmail = (value) => {
   return (value || "").trim().toLowerCase();
 };
@@ -1527,18 +1580,32 @@ const removeNotice = (notice) => {
   );
 
   if (emailAlreadyUsed) {
-    return alert("This email address is already assigned to another staff member.");
+    return alert(
+      "This email address is already assigned to another staff member."
+    );
   }
+
+  const selectedSupervisor = activeEmployees.find(
+    (employee) => employee.id === empForm.supervisorId
+  );
 
   setIsLoading(true);
 
   try {
+    const supervisorName = selectedSupervisor?.name || "";
+
     const payload = {
       name: safeName,
       email: safeEmail,
       designation: (empForm.designation || "").trim(),
       section: safeSection,
-      supervisor: (empForm.supervisor || "").trim(),
+
+      supervisorId: selectedSupervisor?.id || "",
+      supervisorName,
+
+      // Keeps old pages and old records compatible.
+      supervisor: supervisorName,
+
       status: "active"
     };
 
@@ -1554,7 +1621,7 @@ const removeNotice = (notice) => {
       email: "",
       designation: "",
       section: "",
-      supervisor: ""
+      supervisorId: ""
     });
 
     showToast("Staff registered successfully.");
@@ -1652,6 +1719,137 @@ const saveEmployeeEmail = async (e) => {
   } catch (error) {
     console.error("Could not update employee email:", error);
     showToast("Could not update employee email.", "error");
+  }
+};
+
+const toggleDirectoryEmployeeSelection = (employeeId) => {
+  setSelectedEmployeeIds((previous) =>
+    previous.includes(employeeId)
+      ? previous.filter((id) => id !== employeeId)
+      : [...previous, employeeId]
+  );
+};
+
+const toggleAllVisibleEmployees = () => {
+  const visibleIds = filteredEmployees.map((employee) => employee.id);
+
+  const allVisibleAlreadySelected =
+    visibleIds.length > 0 &&
+    visibleIds.every((id) => selectedEmployeeIds.includes(id));
+
+  setSelectedEmployeeIds((previous) => {
+    if (allVisibleAlreadySelected) {
+      return previous.filter((id) => !visibleIds.includes(id));
+    }
+
+    return [...new Set([...previous, ...visibleIds])];
+  });
+};
+
+const openBulkSupervisorModal = () => {
+  if (selectedEmployeeIds.length === 0) {
+    showToast("Select at least one staff member first.", "error");
+    return;
+  }
+
+  setBulkSupervisorId("");
+  setBulkSupervisorPinInput("");
+  setBulkSupervisorModal(true);
+};
+
+const closeBulkSupervisorModal = () => {
+  setBulkSupervisorModal(false);
+  setBulkSupervisorId("");
+  setBulkSupervisorPinInput("");
+};
+
+const saveBulkSupervisor = async (e) => {
+  e.preventDefault();
+
+  if (selectedDirectoryEmployees.length === 0) {
+    return alert("No staff members are selected.");
+  }
+
+  if (bulkSupervisorPinInput !== "2391") {
+    showToast(
+      "Incorrect PIN. Supervisor assignments were not changed.",
+      "error"
+    );
+    return;
+  }
+
+  const selectedSupervisor = activeEmployees.find(
+    (employee) => employee.id === bulkSupervisorId
+  );
+
+  if (
+    selectedSupervisor &&
+    selectedEmployeeIds.includes(selectedSupervisor.id)
+  ) {
+    return alert(
+      "The selected supervisor is also selected for reassignment. Deselect that supervisor first."
+    );
+  }
+
+  const createsHierarchyLoop =
+    selectedSupervisor &&
+    selectedDirectoryEmployees.some((employee) =>
+      wouldCreateSupervisorCycle(
+        employee.id,
+        selectedSupervisor.id
+      )
+    );
+
+  if (createsHierarchyLoop) {
+    return alert(
+      "This assignment would create a supervisor reporting loop. Please choose another supervisor."
+    );
+  }
+
+  const supervisorFields = {
+    supervisorId: selectedSupervisor?.id || "",
+    supervisorName: selectedSupervisor?.name || "",
+    supervisor: selectedSupervisor?.name || ""
+  };
+
+  setIsBulkSupervisorSaving(true);
+
+  try {
+    const batch = writeBatch(db);
+
+    selectedDirectoryEmployees.forEach((employee) => {
+      batch.set(
+        doc(db, "employees", employee.id),
+        supervisorFields,
+        { merge: true }
+      );
+    });
+
+    await batch.commit();
+
+    setEmployees((previous) =>
+      previous.map((employee) =>
+        selectedEmployeeIds.includes(employee.id)
+          ? { ...employee, ...supervisorFields }
+          : employee
+      )
+    );
+
+    const updateMessage = selectedSupervisor
+      ? `${selectedDirectoryEmployees.length} staff reassigned to ${selectedSupervisor.name}.`
+      : `${selectedDirectoryEmployees.length} staff now have no supervisor assigned.`;
+
+    setSelectedEmployeeIds([]);
+    closeBulkSupervisorModal();
+    showToast(updateMessage);
+  } catch (error) {
+    console.error("Bulk supervisor update failed:", error);
+    showToast(
+      "Could not update supervisor assignments.",
+      "error"
+    );
+  } finally {
+    setIsBulkSupervisorSaving(false);
   }
 };
 
@@ -2414,8 +2612,10 @@ const filteredEmployees = employees.filter((e) => {
   const sectionMatch = !dirFilter.section || e.section === dirFilter.section;
 
   const supervisorMatch =
-    !dirFilter.supervisor ||
-    (e.supervisor || "").toLowerCase().includes(dirFilter.supervisor.toLowerCase());
+  !dirFilter.supervisor ||
+  getSupervisorDisplayName(e)
+    .toLowerCase()
+    .includes(dirFilter.supervisor.toLowerCase());
 
   const nameMatch =
     !employeeSearch ||
@@ -2423,6 +2623,23 @@ const filteredEmployees = employees.filter((e) => {
 
   return sectionMatch && supervisorMatch && nameMatch;
 });
+const selectedDirectoryEmployees = employees.filter((employee) =>
+  selectedEmployeeIds.includes(employee.id)
+);
+
+const allVisibleEmployeesSelected =
+  filteredEmployees.length > 0 &&
+  filteredEmployees.every((employee) =>
+    selectedEmployeeIds.includes(employee.id)
+  );
+
+const availableBulkSupervisors = [...activeEmployees]
+  .filter(
+    (employee) => !selectedEmployeeIds.includes(employee.id)
+  )
+  .sort((a, b) =>
+    (a.name || "").localeCompare(b.name || "")
+  );
 const filteredLeaves = leaves.filter(
   (l) =>
     activeEmployeeNames.has(l.employee) &&
@@ -4097,7 +4314,30 @@ return (
   }
 />
                   <input required placeholder="Section (e.g. IT, HR) *" value={empForm.section} onChange={(e) => setEmpForm({ ...empForm, section: e.target.value })} />
-                  <input placeholder="Supervisor Name" value={empForm.supervisor} onChange={(e) => setEmpForm({ ...empForm, supervisor: e.target.value })} />
+                  <select
+  value={empForm.supervisorId}
+  onChange={(e) =>
+    setEmpForm({
+      ...empForm,
+      supervisorId: e.target.value
+    })
+  }
+>
+  <option value="">No Supervisor / Not Assigned</option>
+
+  {[...activeEmployees]
+    .sort((a, b) =>
+      (a.name || "").localeCompare(b.name || "")
+    )
+    .map((employee) => (
+      <option key={employee.id} value={employee.id}>
+        {employee.name}
+        {employee.designation
+          ? ` — ${employee.designation}`
+          : ""}
+      </option>
+    ))}
+</select>
                   <button type="submit" className="primary-btn" disabled={isLoading}>
                     {isLoading ? "Saving..." : "Register Staff"}
                   </button>
@@ -4227,9 +4467,34 @@ return (
   <div className="panel full-width">
 
     <div className="table-header">
-      <h2>Staff Directory</h2>
+  <h2>Staff Directory</h2>
 
-      <div className="filter-group">
+  <div className="directory-bulk-toolbar">
+    <span className="directory-selection-count">
+      {selectedEmployeeIds.length} selected
+    </span>
+
+    <button
+      type="button"
+      className="secondary-btn-sm"
+      disabled={selectedEmployeeIds.length === 0}
+      onClick={openBulkSupervisorModal}
+    >
+      Change Supervisor
+    </button>
+
+    {selectedEmployeeIds.length > 0 && (
+      <button
+        type="button"
+        className="directory-clear-selection-btn"
+        onClick={() => setSelectedEmployeeIds([])}
+      >
+        Clear
+      </button>
+    )}
+  </div>
+
+  <div className="filter-group">
         <input
           type="text"
           placeholder="Search employee name"
@@ -4268,8 +4533,17 @@ return (
       <table className="modern-table">
         <thead>
           <tr>
-            <th>Name</th>
-<th>Email</th>
+  <th className="directory-selection-cell">
+    <input
+      type="checkbox"
+      title="Select all visible staff"
+      checked={allVisibleEmployeesSelected}
+      onChange={toggleAllVisibleEmployees}
+    />
+  </th>
+
+  <th>Name</th>
+  <th>Email</th>
 <th>Designation</th>
 <th>Section</th>
 <th>Supervisor</th>
@@ -4281,8 +4555,16 @@ return (
         <tbody>
           {filteredEmployees.map((e) => (
             <tr key={e.id}>
-              <td>
-  <button
+  <td className="directory-selection-cell">
+    <input
+      type="checkbox"
+      checked={selectedEmployeeIds.includes(e.id)}
+      onChange={() => toggleDirectoryEmployeeSelection(e.id)}
+    />
+  </td>
+
+  <td>
+    <button
     type="button"
     className="profile-link"
     onClick={() => openEmployeeProfile(e)}
@@ -4303,7 +4585,9 @@ return (
               <td>
   <span className="badge">{e.section}</span>
 </td>
-<td>{e.supervisor || "—"}</td>
+<td>
+  {getSupervisorDisplayName(e) || "—"}
+</td>
 <td>
   <span className={`badge ${e.status === "inactive" ? "inactive-badge" : "active-badge"}`}>
     {e.status === "inactive" ? "Inactive" : "Active"}
@@ -4341,7 +4625,7 @@ return (
 
           {filteredEmployees.length === 0 && (
             <tr>
-              <td colSpan="7" className="muted">
+              <td colSpan="8" className="muted">
                 No staff found.
               </td>
             </tr>
@@ -5843,6 +6127,107 @@ Unlock Hukuru 2026
         </button>
       </div>
     </div>
+  </div>
+)}
+
+{bulkSupervisorModal && (
+  <div
+    className="confirm-overlay"
+    onClick={closeBulkSupervisorModal}
+  >
+    <form
+      className="bulk-supervisor-box"
+      onSubmit={saveBulkSupervisor}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="confirm-icon">👥</div>
+
+      <h3>Bulk Supervisor Reassignment</h3>
+
+      <p>
+        You are changing the supervisor for{" "}
+        <strong>{selectedDirectoryEmployees.length}</strong> selected staff
+        member{selectedDirectoryEmployees.length === 1 ? "" : "s"}.
+      </p>
+
+      <div className="bulk-supervisor-selected-list">
+        {selectedDirectoryEmployees.slice(0, 8).map((employee) => (
+          <span key={employee.id}>
+            {employee.name}
+          </span>
+        ))}
+
+        {selectedDirectoryEmployees.length > 8 && (
+          <span>
+            +{selectedDirectoryEmployees.length - 8} more
+          </span>
+        )}
+      </div>
+
+      <label className="bulk-supervisor-label">
+        New Supervisor
+
+        <select
+          value={bulkSupervisorId}
+          onChange={(e) => setBulkSupervisorId(e.target.value)}
+        >
+          <option value="">
+            No Supervisor / Remove Assignment
+          </option>
+
+          {availableBulkSupervisors.map((employee) => (
+            <option key={employee.id} value={employee.id}>
+              {employee.name}
+              {employee.designation
+                ? ` — ${employee.designation}`
+                : ""}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <p className="bulk-supervisor-note">
+        {bulkSupervisorId
+          ? "The selected staff will be reassigned to this supervisor."
+          : "The selected staff will no longer have a supervisor assigned."}
+      </p>
+
+      <label className="bulk-supervisor-label">
+        Authorisation PIN
+
+        <input
+          required
+          type="password"
+          inputMode="numeric"
+          maxLength="4"
+          placeholder="Enter Authorization PIN"
+          value={bulkSupervisorPinInput}
+          onChange={(e) =>
+            setBulkSupervisorPinInput(e.target.value)
+          }
+        />
+      </label>
+
+      <div className="confirm-actions">
+        <button
+          type="button"
+          className="confirm-cancel"
+          onClick={closeBulkSupervisorModal}
+        >
+          Cancel
+        </button>
+
+        <button
+          type="submit"
+          className="confirm-delete"
+          disabled={isBulkSupervisorSaving}
+        >
+          {isBulkSupervisorSaving
+            ? "Updating..."
+            : "Apply Changes"}
+        </button>
+      </div>
+    </form>
   </div>
 )}
 

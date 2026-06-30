@@ -2791,3 +2791,129 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
     flex-direction: column;
   }
 }
+
+/* =========================
+   BULK SUPERVISOR MANAGEMENT
+========================= */
+
+.directory-bulk-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.directory-selection-count {
+  padding: 7px 10px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.directory-clear-selection-btn {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.directory-clear-selection-btn:hover {
+  color: #dc2626;
+}
+
+.directory-selection-cell {
+  width: 44px;
+  text-align: center;
+}
+
+.directory-selection-cell input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: #2563eb;
+}
+
+.bulk-supervisor-box {
+  width: 100%;
+  max-width: 560px;
+  padding: 28px;
+  border-radius: 22px;
+  background: white;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.35);
+  text-align: left;
+  animation: confirmPop 0.28s ease-out;
+}
+
+.bulk-supervisor-box .confirm-icon {
+  margin-left: 0;
+}
+
+.bulk-supervisor-box h3 {
+  margin-bottom: 10px;
+  color: #0f172a;
+}
+
+.bulk-supervisor-box > p {
+  color: #64748b;
+  line-height: 1.55;
+}
+
+.bulk-supervisor-selected-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  max-height: 104px;
+  overflow-y: auto;
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.bulk-supervisor-selected-list span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.bulk-supervisor-label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 14px;
+  color: #334155;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.bulk-supervisor-note {
+  margin-top: 9px;
+  color: #64748b;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .directory-bulk-toolbar {
+    width: 100%;
+  }
+
+  .directory-bulk-toolbar .secondary-btn-sm {
+    flex: 1;
+  }
+
+  .bulk-supervisor-box {
+    padding: 22px;
+  }
+}
