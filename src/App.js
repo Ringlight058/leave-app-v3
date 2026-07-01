@@ -609,6 +609,15 @@ const [yaumiyyaRecord, setYaumiyyaRecord] = useState({
   customLeave: []
 });
 
+const [overviewYaumiyyaRecord, setOverviewYaumiyyaRecord] = useState({
+  annualLeave: [],
+  familyLeave: [],
+  sickLeaveMC: [],
+  sickLeaveNoMC: [],
+  customLeaveTitle: "Other Leave",
+  customLeave: []
+});
+
   const [empForm, setEmpForm] = useState({
   name: "",
   email: "",
@@ -669,6 +678,24 @@ const [attendanceSettings, setAttendanceSettings] = useState({
       // NEW: Fetch holidays from Firebase
       const holidaySnap = await getDocs(collection(db, "holidays"));
       setPublicHolidays(holidaySnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+
+const overviewYaumiyyaSnap = await getDoc(
+  doc(db, "yaumiyya", getMaldivesDateString())
+);
+
+const overviewYaumiyyaData = overviewYaumiyyaSnap.exists()
+  ? overviewYaumiyyaSnap.data()
+  : {};
+
+setOverviewYaumiyyaRecord({
+  annualLeave: overviewYaumiyyaData.annualLeave || [],
+  familyLeave: overviewYaumiyyaData.familyLeave || [],
+  sickLeaveMC: overviewYaumiyyaData.sickLeaveMC || [],
+  sickLeaveNoMC: overviewYaumiyyaData.sickLeaveNoMC || [],
+  customLeaveTitle:
+    overviewYaumiyyaData.customLeaveTitle || "Other Leave",
+  customLeave: overviewYaumiyyaData.customLeave || []
+});
 
     } catch (e) {
       console.error("Firebase sync error. Is Firestore enabled?", e);
@@ -2861,6 +2888,312 @@ const returningThisWeek = leaves.filter((l) => {
 
   return rDate >= base && rDate <= next7Days;
 });
+
+const getOverviewDateOffset = (dateString, daysToAdd) => {
+  const date = new Date(`${dateString}T12:00:00`);
+  date.setDate(date.getDate() + daysToAdd);
+
+  return formatLocalDateString(date);
+};
+
+const councilOverviewDate = getMaldivesDateString();
+const councilOverviewWeekEnd = getOverviewDateOffset(
+  councilOverviewDate,
+  7
+);
+const councilOverviewTwoWeeksEnd = getOverviewDateOffset(
+  councilOverviewDate,
+  14
+);
+
+const councilActiveEmployeeNames = new Set(
+  activeEmployees.map((employee) =>
+    normalizeNoticeName(employee.name)
+  )
+);
+
+const councilTodayLeaveNames = new Set();
+
+const addCouncilLeaveName = (name) => {
+  const normalizedName = normalizeNoticeName(name);
+
+  if (
+    normalizedName &&
+    councilActiveEmployeeNames.has(normalizedName)
+  ) {
+    councilTodayLeaveNames.add(normalizedName);
+  }
+};
+
+/* Annual Leave Records active today */
+leaves
+  .filter(
+    (leave) =>
+      leave.start &&
+      leave.end &&
+      leave.start <= councilOverviewDate &&
+      leave.end >= councilOverviewDate
+  )
+  .forEach((leave) => addCouncilLeaveName(leave.employee));
+
+/* Today's Yaumiyya / Daily Leave categories */
+[
+  overviewYaumiyyaRecord.annualLeave || [],
+  overviewYaumiyyaRecord.familyLeave || [],
+  overviewYaumiyyaRecord.sickLeaveMC || [],
+  overviewYaumiyyaRecord.sickLeaveNoMC || [],
+  overviewYaumiyyaRecord.customLeave || []
+].forEach((leaveList) => {
+  leaveList.forEach((staffName) => addCouncilLeaveName(staffName));
+});
+
+const councilOnLeaveToday = councilTodayLeaveNames.size;
+
+const councilLiveNotices = notices.filter((notice) => {
+  const hasStarted =
+    !notice.publishDate ||
+    notice.publishDate <= councilOverviewDate;
+
+  const hasNotExpired =
+    !notice.expiryDate ||
+    notice.expiryDate >= councilOverviewDate;
+
+  return hasStarted && hasNotExpired;
+});
+
+const councilNoticesExpiringSoon = councilLiveNotices.filter(
+  (notice) =>
+    notice.expiryDate &&
+    notice.expiryDate >= councilOverviewDate &&
+    notice.expiryDate <= councilOverviewWeekEnd
+);
+
+const councilNextHoliday = [...publicHolidays]
+  .filter(
+    (holiday) =>
+      holiday.date && holiday.date >= councilOverviewDate
+  )
+  .sort((a, b) => a.date.localeCompare(b.date))[0];
+
+const councilUnassignedSupervisors = activeEmployees.filter(
+  (employee) => !getSupervisorDisplayName(employee)
+).length;
+
+const councilEmptyGroups = staffGroups.filter(
+  (group) => !group.members || group.members.length === 0
+).length;
+
+const councilLeaveStartsThisWeek = new Set(
+  leaves
+    .filter(
+      (leave) =>
+        leave.start &&
+        leave.start >= councilOverviewDate &&
+        leave.start <= councilOverviewWeekEnd &&
+        councilActiveEmployeeNames.has(
+          normalizeNoticeName(leave.employee)
+        )
+    )
+    .map((leave) => normalizeNoticeName(leave.employee))
+).size;
+
+const councilReturningThisWeek = new Set(
+  leaves
+    .filter((leave) => {
+      const returnDate = getNextWorkingDay(leave.end);
+
+      return (
+        returnDate &&
+        returnDate >= councilOverviewDate &&
+        returnDate <= councilOverviewWeekEnd &&
+        councilActiveEmployeeNames.has(
+          normalizeNoticeName(leave.employee)
+        )
+      );
+    })
+    .map((leave) => normalizeNoticeName(leave.employee))
+).size;
+
+const councilPeakLeaveDay = (() => {
+  let peak = {
+    date: "",
+    count: 0
+  };
+
+  for (let offset = 0; offset < 14; offset += 1) {
+    const checkDate = getOverviewDateOffset(
+      councilOverviewDate,
+      offset
+    );
+
+    const staffNamesOnLeave =
+      offset === 0
+        ? new Set(councilTodayLeaveNames)
+        : new Set();
+
+    if (offset !== 0) {
+      leaves
+        .filter(
+          (leave) =>
+            leave.start &&
+            leave.end &&
+            leave.start <= checkDate &&
+            leave.end >= checkDate &&
+            councilActiveEmployeeNames.has(
+              normalizeNoticeName(leave.employee)
+            )
+        )
+        .forEach((leave) =>
+          staffNamesOnLeave.add(
+            normalizeNoticeName(leave.employee)
+          )
+        );
+    }
+
+    if (staffNamesOnLeave.size > peak.count) {
+      peak = {
+        date: checkDate,
+        count: staffNamesOnLeave.size
+      };
+    }
+  }
+
+  return peak.count > 0 ? peak : null;
+})();
+
+const councilSectionCoverage = Array.from(
+  activeEmployees
+    .reduce((sectionMap, employee) => {
+      const sectionName =
+        (employee.section || "").trim() || "Unassigned Section";
+
+      const currentSection = sectionMap.get(sectionName) || {
+        section: sectionName,
+        activeStaff: 0,
+        onLeave: 0
+      };
+
+      currentSection.activeStaff += 1;
+
+      if (
+        councilTodayLeaveNames.has(
+          normalizeNoticeName(employee.name)
+        )
+      ) {
+        currentSection.onLeave += 1;
+      }
+
+      sectionMap.set(sectionName, currentSection);
+
+      return sectionMap;
+    }, new Map())
+    .values()
+)
+  .map((section) => ({
+    ...section,
+    availableStaff: section.activeStaff - section.onLeave
+  }))
+  .sort((a, b) =>
+    a.section.localeCompare(b.section)
+  );
+
+const councilAttentionItems = [
+  ...(councilUnassignedSupervisors > 0
+    ? [
+        {
+          id: "supervisors",
+          title: `${councilUnassignedSupervisors} active staff without a supervisor`,
+          detail:
+            "Review the reporting structure and assign a supervisor.",
+          tab: "directory",
+          action: "Open Directory"
+        }
+      ]
+    : []),
+
+  ...(councilEmptyGroups > 0
+    ? [
+        {
+          id: "groups",
+          title: `${councilEmptyGroups} staff group${
+            councilEmptyGroups === 1 ? "" : "s"
+          } without members`,
+          detail:
+            "Review saved groups and add the correct staff members.",
+          tab: "groups",
+          action: "Open Groups"
+        }
+      ]
+    : []),
+
+  ...(councilNoticesExpiringSoon.length > 0
+    ? [
+        {
+          id: "notices",
+          title: `${councilNoticesExpiringSoon.length} notice${
+            councilNoticesExpiringSoon.length === 1 ? "" : "s"
+          } expiring within 7 days`,
+          detail:
+            "Review whether each notice should be extended or removed.",
+          tab: "notice-board",
+          action: "Review Notices"
+        }
+      ]
+    : []),
+
+  ...(councilNextHoliday &&
+  councilNextHoliday.date <= councilOverviewTwoWeeksEnd
+    ? [
+        {
+          id: "holiday",
+          title: `Upcoming public holiday: ${councilNextHoliday.name}`,
+          detail: `${formatNoticeDate(
+            councilNextHoliday.date
+          )} is within the next 14 days.`,
+          tab: "admin",
+          action: "View Holidays"
+        }
+      ]
+    : [])
+];
+
+const councilSummaryCards = [
+  {
+    label: "Active Staff",
+    value: activeEmployees.length,
+    detail: "Current active directory"
+  },
+  {
+    label: "Staff on Leave Today",
+    value: councilOnLeaveToday,
+    detail: "Leave Records and Yaumiyya"
+  },
+  {
+    label: "Live Notices",
+    value: councilLiveNotices.length,
+    detail: "Currently active notices"
+  },
+  {
+    label: "Staff Groups",
+    value: staffGroups.length,
+    detail: "Saved council groups"
+  },
+  {
+    label: "Unassigned Supervisors",
+    value: councilUnassignedSupervisors,
+    detail: "Active staff requiring review"
+  },
+  {
+    label: "Next Public Holiday",
+    value: councilNextHoliday
+      ? formatNoticeDate(councilNextHoliday.date)
+      : "—",
+    detail: councilNextHoliday
+      ? councilNextHoliday.name
+      : "No future holiday saved"
+  }
+];
+
 const leaveTrendData = months.map((month, index) => {
   const count = leaves.filter((l) => {
     if (!l.start) return false;
@@ -3104,11 +3437,11 @@ return (
   </li>
 
   <li
-    className={activeTab === "dashboard" ? "active" : ""}
-    onClick={() => closeSidebarAndGo("dashboard")}
-  >
-    Visual Board
-  </li>
+  className={activeTab === "dashboard" ? "active" : ""}
+  onClick={() => closeSidebarAndGo("dashboard")}
+>
+  Council Overview
+</li>
 
   <li
     className={activeTab === "notice-board" ? "active" : ""}
@@ -3230,7 +3563,11 @@ return (
       <main className="main-content">
         <header className="main-header">
           <button className="burger-btn" onClick={() => setIsSidebarOpen(true)}>☰</button>
-          <h1 className="page-title">{activeTab.replace("-", " ").toUpperCase()}</h1>
+          <h1 className="page-title">
+  {activeTab === "dashboard"
+    ? "COUNCIL OVERVIEW"
+    : activeTab.replace(/-/g, " ").toUpperCase()}
+</h1>
           <div className="user-profile">
   <span>Latest Build: 2026/06/18 08:53</span>
   <button className="logout-btn" onClick={handleLogout}>
@@ -4330,28 +4667,269 @@ return (
   </div>
 )}
           {/* DASHBOARD TAB */}
-          {activeTab === "dashboard" && (
-            <div className="admin-grid">
-              <section className="panel">
-                <h2>Overview</h2>
-                <div className="closest-item"><strong>Total Staff</strong><span>{employees.length}</span></div>
-                <div className="closest-item"><strong>Total Leave Records</strong><span>{leaves.length}</span></div>
-                <div className="closest-item"><strong>Public Holidays</strong><span>{publicHolidays.length}</span></div>
-              </section>
+{/* COUNCIL OVERVIEW TAB */}
+{activeTab === "dashboard" && (
+  <div className="council-overview-page">
+    <section className="panel council-overview-hero">
+      <div>
+        <span className="council-overview-kicker">
+          FUNADHOO COUNCIL
+        </span>
 
-              <section className="panel">
-                <h2>Upcoming Leave Snapshot</h2>
-                {closestLeaves.length > 0 ? (
-                  closestLeaves.map((l) => (
-                    <div key={l.id} className="closest-item">
-                      <div><strong>{l.employee}</strong><div className="muted">{l.start} to {l.end}</div></div>
-                    </div>
-                  ))
-                ) : <p className="muted">No upcoming leave records.</p>}
-              </section>
+        <h2>Council Overview</h2>
+
+        <p className="muted">
+          A live management view of staffing, leave planning, notices,
+          public holidays and council structure.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        className="refresh-btn"
+        onClick={refreshData}
+      >
+        Refresh Overview
+      </button>
+    </section>
+
+    <section className="council-summary-grid">
+      {councilSummaryCards.map((card) => (
+        <article
+          className="panel council-summary-card"
+          key={card.label}
+        >
+          <span>{card.label}</span>
+
+          <strong
+            className={
+              card.label === "Next Public Holiday"
+                ? "council-summary-date"
+                : ""
+            }
+          >
+            {card.value}
+          </strong>
+
+          <small>{card.detail}</small>
+        </article>
+      ))}
+    </section>
+
+    <div className="council-overview-main-grid">
+      <section className="panel council-attention-panel">
+        <div className="flex-between mb-4">
+          <div>
+            <span className="council-panel-kicker">
+              MANAGEMENT CHECK
+            </span>
+
+            <h2>Attention Needed</h2>
+          </div>
+
+          <span className="badge">
+            {councilAttentionItems.length}
+          </span>
+        </div>
+
+        {councilAttentionItems.length > 0 ? (
+          <div className="council-attention-list">
+            {councilAttentionItems.map((item) => (
+              <div
+                className="council-attention-item"
+                key={item.id}
+              >
+                <div>
+                  <strong>{item.title}</strong>
+                  <small>{item.detail}</small>
+                </div>
+
+                <button
+                  type="button"
+                  className="secondary-btn-sm"
+                  onClick={() => closeSidebarAndGo(item.tab)}
+                >
+                  {item.action}
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="council-empty-state">
+            <span>✓</span>
+            <div>
+              <strong>No immediate items need attention.</strong>
+              <small>
+                Staff structure, notices and holiday planning currently look
+                up to date.
+              </small>
             </div>
-          )}
+          </div>
+        )}
+      </section>
 
+      <section className="panel council-leave-plan-panel">
+        <div>
+          <span className="council-panel-kicker">
+            LEAVE PLANNING
+          </span>
+
+          <h2>Leave Planning Snapshot</h2>
+        </div>
+
+        <div className="council-plan-grid">
+          <div className="council-plan-item">
+            <span>On Leave Today</span>
+            <strong>{councilOnLeaveToday}</strong>
+          </div>
+
+          <div className="council-plan-item">
+            <span>Starting This Week</span>
+            <strong>{councilLeaveStartsThisWeek}</strong>
+          </div>
+
+          <div className="council-plan-item">
+            <span>Returning This Week</span>
+            <strong>{councilReturningThisWeek}</strong>
+          </div>
+
+          <div className="council-plan-item">
+            <span>Highest Leave Day</span>
+            <strong>
+              {councilPeakLeaveDay
+                ? councilPeakLeaveDay.count
+                : 0}
+            </strong>
+
+            <small>
+              {councilPeakLeaveDay
+                ? formatNoticeDate(councilPeakLeaveDay.date)
+                : "No upcoming leave records"}
+            </small>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="secondary-btn-sm council-panel-action"
+          onClick={() => closeSidebarAndGo("staff-on-leave")}
+        >
+          View Staff on Leave
+        </button>
+      </section>
+    </div>
+
+    <div className="council-overview-main-grid">
+      <section className="panel council-section-panel">
+        <div className="flex-between mb-4">
+          <div>
+            <span className="council-panel-kicker">
+              STAFFING VIEW
+            </span>
+
+            <h2>Section Coverage Today</h2>
+          </div>
+
+          <button
+            type="button"
+            className="secondary-btn-sm"
+            onClick={() => closeSidebarAndGo("directory")}
+          >
+            Staff Directory
+          </button>
+        </div>
+
+        <div className="council-section-list">
+          {councilSectionCoverage.map((section) => (
+            <div
+              className="council-section-row"
+              key={section.section}
+            >
+              <div>
+                <strong>{section.section}</strong>
+
+                <small>
+                  {section.availableStaff} available ·{" "}
+                  {section.onLeave} on leave
+                </small>
+              </div>
+
+              <span className="badge">
+                {section.activeStaff} active
+              </span>
+            </div>
+          ))}
+
+          {councilSectionCoverage.length === 0 && (
+            <p className="muted">
+              No active staff sections are available yet.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="panel council-actions-panel">
+        <div>
+          <span className="council-panel-kicker">
+            SHORTCUTS
+          </span>
+
+          <h2>Quick Actions</h2>
+        </div>
+
+        <div className="council-actions-grid">
+          <button
+            type="button"
+            onClick={() => closeSidebarAndGo("admin")}
+          >
+            <span>+</span>
+            Add Leave Record
+          </button>
+
+          <button
+            type="button"
+            onClick={() => closeSidebarAndGo("yaumiyya")}
+          >
+            <span>◷</span>
+            Manage Yaumiyya
+          </button>
+
+          <button
+            type="button"
+            onClick={() => closeSidebarAndGo("notice-board")}
+          >
+            <span>📌</span>
+            Post Notice
+          </button>
+
+          <button
+            type="button"
+            onClick={() => closeSidebarAndGo("directory")}
+          >
+            <span>👥</span>
+            Staff Directory
+          </button>
+
+          <button
+            type="button"
+            onClick={() => closeSidebarAndGo("groups")}
+          >
+            <span>◫</span>
+            Staff Groups
+          </button>
+
+          <button
+            type="button"
+            onClick={() => closeSidebarAndGo("hukuru-2026")}
+          >
+            <span>☪</span>
+            Friday Prayer Schedule
+          </button>
+        </div>
+      </section>
+    </div>
+  </div>
+)}
           {/* ADMIN TAB */}
           {activeTab === "admin" && (
             <div className="admin-grid">
