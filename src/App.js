@@ -272,33 +272,83 @@ const generateStaffOnLeavePDF = async () => {
 };
 
 const generateYaumiyyaPDF = async () => {
-  const ref = doc(db, "yaumiyya", reportDate);
-  const snap = await getDoc(ref);
+  const yaumiyyaRef = doc(db, "yaumiyya", reportDate);
+  const snap = await getDoc(yaumiyyaRef);
 
-  const record = snap.exists()
-    ? snap.data()
-    : { annualLeave: [], familyLeave: [], sickLeaveMC: [], sickLeaveNoMC: [] };
+  const record = snap.exists() ? snap.data() : {};
+
+  const customLeaveTitle =
+    (record.customLeaveTitle || "Other Leave").trim() ||
+    "Other Leave";
 
   const rows = [
-    ...(record.annualLeave || []).map((name) => ["Annual Leave", name]),
-    ...(record.familyLeave || []).map((name) => ["Family Leave", name]),
-    ...(record.sickLeaveMC || []).map((name) => ["Sick Leave With MC", name]),
-    ...(record.sickLeaveNoMC || []).map((name) => ["Sick Leave Without MC", name])
+    ...(record.annualLeave || []).map((name) => [
+      "Annual Leave",
+      name
+    ]),
+
+    ...(record.familyLeave || []).map((name) => [
+      "Family Leave",
+      name
+    ]),
+
+    ...(record.sickLeaveMC || []).map((name) => [
+      "Sick Leave With MC",
+      name
+    ]),
+
+    ...(record.sickLeaveNoMC || []).map((name) => [
+      "Sick Leave Without MC",
+      name
+    ]),
+
+    ...(record.customLeave || []).map((name) => [
+      customLeaveTitle,
+      name
+    ])
   ];
 
-  if (rows.length === 0) return alert("No Yaumiyya records found for selected date.");
+  if (rows.length === 0) {
+    return alert(
+      "No Yaumiyya records found for selected date."
+    );
+  }
 
   const pdf = new jsPDF("p", "mm", "a4");
 
   autoTable(pdf, {
     startY: 72,
     head: [["#", "Category", "Staff Name"]],
-    body: rows.map((row, i) => [i + 1, row[0], row[1]]),
-    styles: { fontSize: 9, cellPadding: 4, textColor: [30, 41, 59] },
-    headStyles: { fillColor: [30, 64, 175], textColor: [255, 255, 255], fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
-    margin: { top: 72, left: 14, right: 14, bottom: 18 },
-    didDrawPage: () => addReportHeaderFooter(pdf, `Yaumiyya Report - ${reportDate}`, rows.length)
+    body: rows.map((row, index) => [
+      index + 1,
+      row[0],
+      row[1]
+    ]),
+    styles: {
+      fontSize: 9,
+      cellPadding: 4,
+      textColor: [30, 41, 59]
+    },
+    headStyles: {
+      fillColor: [30, 64, 175],
+      textColor: [255, 255, 255],
+      fontStyle: "bold"
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252]
+    },
+    margin: {
+      top: 72,
+      left: 14,
+      right: 14,
+      bottom: 18
+    },
+    didDrawPage: () =>
+      addReportHeaderFooter(
+        pdf,
+        `Yaumiyya Report - ${reportDate}`,
+        rows.length
+      )
   });
 
   pdf.save(`Yaumiyya Report ${reportDate}.pdf`);
@@ -535,6 +585,15 @@ const [reportsPassword, setReportsPassword] = useState("");
 const [reportDate, setReportDate] = useState(
   new Date().toISOString().split("T")[0]
 );
+
+const [reportYaumiyyaRecord, setReportYaumiyyaRecord] = useState({
+  annualLeave: [],
+  familyLeave: [],
+  sickLeaveMC: [],
+  sickLeaveNoMC: [],
+  customLeaveTitle: "Other Leave",
+  customLeave: []
+});
 
 const [showVagutheeCalendar, setShowVagutheeCalendar] = useState(false);
 
@@ -2188,6 +2247,42 @@ const loadYaumiyya = async (date) => {
 useEffect(() => {
   loadYaumiyya(yaumiyyaDate);
 }, [yaumiyyaDate]);
+
+useEffect(() => {
+  let isCurrent = true;
+
+  const loadReportYaumiyya = async () => {
+    try {
+      const reportYaumiyyaSnap = await getDoc(
+        doc(db, "yaumiyya", reportDate)
+      );
+
+      const reportData = reportYaumiyyaSnap.exists()
+        ? reportYaumiyyaSnap.data()
+        : {};
+
+      if (!isCurrent) return;
+
+      setReportYaumiyyaRecord({
+        annualLeave: reportData.annualLeave || [],
+        familyLeave: reportData.familyLeave || [],
+        sickLeaveMC: reportData.sickLeaveMC || [],
+        sickLeaveNoMC: reportData.sickLeaveNoMC || [],
+        customLeaveTitle:
+          reportData.customLeaveTitle || "Other Leave",
+        customLeave: reportData.customLeave || []
+      });
+    } catch (error) {
+      console.error("Error loading report Yaumiyya:", error);
+    }
+  };
+
+  loadReportYaumiyya();
+
+  return () => {
+    isCurrent = false;
+  };
+}, [reportDate]);
 
 useEffect(() => {
   if (activeTab === "presence-board") {
@@ -3998,16 +4093,45 @@ return (
             </div>
 
             {[
-              { title: "Annual Leave", list: yaumiyyaRecord.annualLeave },
-              { title: "Family Leave", list: yaumiyyaRecord.familyLeave },
-              { title: "Sick Leave With MC", list: yaumiyyaRecord.sickLeaveMC },
-              { title: "Sick Leave Without MC", list: yaumiyyaRecord.sickLeaveNoMC }
-            ].map((item) => (
-              <div className="report-group-box" key={item.title}>
-                <h3>{item.title}</h3>
-                <p>{item.list.length ? item.list.join(", ") : "No records"}</p>
-              </div>
-            ))}
+  {
+    key: "annualLeave",
+    title: "Annual Leave",
+    list: reportYaumiyyaRecord.annualLeave
+  },
+  {
+    key: "familyLeave",
+    title: "Family Leave",
+    list: reportYaumiyyaRecord.familyLeave
+  },
+  {
+    key: "sickLeaveMC",
+    title: "Sick Leave With MC",
+    list: reportYaumiyyaRecord.sickLeaveMC
+  },
+  {
+    key: "sickLeaveNoMC",
+    title: "Sick Leave Without MC",
+    list: reportYaumiyyaRecord.sickLeaveNoMC
+  },
+  {
+    key: "customLeave",
+    title:
+      reportYaumiyyaRecord.customLeaveTitle ||
+      "Other Leave",
+    list: reportYaumiyyaRecord.customLeave || []
+  }
+].map((item) => (
+  <div className="report-group-box" key={item.key}>
+    <h3>{item.title}</h3>
+
+    <p>
+      {item.list?.length
+        ? item.list.join(", ")
+        : "No records"}
+    </p>
+  </div>
+))}
+
           </div>
 
           <div className="official-report" id="vagutheeReport">
