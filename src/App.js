@@ -113,6 +113,7 @@ function App() {
   const [showGroupForm, setShowGroupForm] = useState(true);
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [user, setUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [toast, setToast] = useState(null);
   const [confirmModal, setConfirmModal] = useState(null);
   const [presencePopup, setPresencePopup] = useState(null);
@@ -164,9 +165,10 @@ const openConfirmModal = ({ title, message, confirmText = "Delete", onConfirm })
 const closeConfirmModal = () => {
   setConfirmModal(null);
 };
-  useEffect(() => {
+useEffect(() => {
   const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
     setUser(currentUser);
+    setAuthChecked(true);
   });
 
   return () => unsubscribe();
@@ -763,8 +765,11 @@ setOverviewYaumiyyaRecord({
   };
 
   useEffect(() => {
+  if (!user) return;
+
   refreshData();
-}, []);
+}, [user]);
+
 useEffect(() => {
   setAttendanceClock(getFunadhooTime());
 
@@ -779,11 +784,18 @@ useEffect(() => {
 }, []);
 
 useEffect(() => {
+  if (!user) return;
+
   loadAttendance(attendanceDate);
-}, [attendanceDate]);
+}, [user, attendanceDate]);
+
 useEffect(() => {
+  if (!user) return;
+
   loadAttendanceSettings();
-}, []);
+}, [user]);
+
+
 useEffect(() => {
   if (isSidebarOpen) {
     animate(".nav-menu li", {
@@ -2245,10 +2257,14 @@ const loadYaumiyya = async (date) => {
 };
 
 useEffect(() => {
+  if (!user) return;
+
   loadYaumiyya(yaumiyyaDate);
-}, [yaumiyyaDate]);
+}, [user, yaumiyyaDate]);
 
 useEffect(() => {
+  if (!user) return;
+
   let isCurrent = true;
 
   const loadReportYaumiyya = async () => {
@@ -2282,16 +2298,20 @@ useEffect(() => {
   return () => {
     isCurrent = false;
   };
-}, [reportDate]);
+}, [user, reportDate]);
 
 useEffect(() => {
-  if (activeTab === "presence-board") {
+  if (user && activeTab === "presence-board") {
     loadYaumiyya(attendanceDate);
   }
-}, [activeTab, attendanceDate]);useEffect(() => {
+}, [user, activeTab, attendanceDate]);
+
+useEffect(() => {
+  if (!user) return;
+
   initializeVagutheePeriod();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+}, [user]);
 
 const saveYaumiyyaRecord = async (nextRecord) => {
   try {
@@ -2622,9 +2642,12 @@ const loadHukuru = async (date) => {
 };
 
 useEffect(() => {
+  if (!user) return;
+
   loadHukuru(hukuruDate);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [hukuruDate]);
+}, [user, hukuruDate]);
+
 
 const saveHukuruRecord = async (nextRecord) => {
   try {
@@ -3453,6 +3476,17 @@ const presenceStats = employees.reduce(
     other: 0
   }
 );
+
+if (!authChecked) {
+  return (
+    <div className="login-page">
+      <div className="login-card">
+        <p>Checking sign-in...</p>
+      </div>
+    </div>
+  );
+}
+
 if (!user) {
   return (
     <div className="login-page">
