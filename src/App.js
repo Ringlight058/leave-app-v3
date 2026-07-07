@@ -22,7 +22,8 @@ import {
   onAuthStateChanged,
   signOut,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  signInWithRedirect
 } from "firebase/auth";
 
 import {
@@ -199,12 +200,24 @@ const provider = new GoogleAuthProvider();
 
 const handleGoogleLogin = async () => {
   try {
+    const isMobile =
+      window.matchMedia("(max-width: 768px), (pointer: coarse)").matches;
+
+    if (isMobile) {
+      await signInWithRedirect(auth, provider);
+      return;
+    }
+
     await signInWithPopup(auth, provider);
   } catch (error) {
-    console.log(error);
-    alert("Google sign in failed.");
+    console.error("Google sign-in failed:", error);
+
+    alert(
+      "Google sign-in could not start. Please try again or use email and password."
+    );
   }
 };
+
   const [loginForm, setLoginForm] = useState({
   email: "",
   password: ""
