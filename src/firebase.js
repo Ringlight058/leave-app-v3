@@ -8,7 +8,7 @@ import { getAuth } from "firebase/auth";
 // Your Firebase config (keep as it is)
 const firebaseConfig = {
   apiKey: "AIzaSyAEDLuGabouyahWT-GgGj8GsRNWNRNSrOs",
-  authDomain: "leave-app-v3.firebaseapp.com",
+  authDomain: "leave-app-liart.vercel.app",
   projectId: "leave-app-v3",
   storageBucket: "leave-app-v3.firebasestorage.app",
   messagingSenderId: "983476120764",
