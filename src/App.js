@@ -602,7 +602,7 @@ const [vagutheeForm, setVagutheeForm] = useState({
 const [reportsUnlocked, setReportsUnlocked] = useState(false);
 const [reportsPassword, setReportsPassword] = useState("");
 const [reportDate, setReportDate] = useState(
-  new Date().toISOString().split("T")[0]
+  getMaldivesDateString()
 );
 
 const [reportYaumiyyaRecord, setReportYaumiyyaRecord] = useState({
@@ -664,10 +664,10 @@ const [hukuruRecord, setHukuruRecord] = useState({
   const [selectedDate, setSelectedDate] = useState(null);
   const [isDatePanelClosing, setIsDatePanelClosing] = useState(false);
   const [leaveCheckDate, setLeaveCheckDate] = useState(
-  new Date().toISOString().split("T")[0]
+  getMaldivesDateString()
 );
   const [yaumiyyaDate, setYaumiyyaDate] = useState(
-  new Date().toISOString().split("T")[0]
+  getMaldivesDateString()
 );
 
 const [yaumiyyaForm, setYaumiyyaForm] = useState({
@@ -782,10 +782,10 @@ setOverviewYaumiyyaRecord({
   };
 
   useEffect(() => {
-  if (!user) return;
+  if (!authChecked || !user) return;
 
   refreshData();
-}, [user]);
+}, [authChecked, user]);
 
 useEffect(() => {
   setAttendanceClock(getFunadhooTime());
@@ -801,16 +801,16 @@ useEffect(() => {
 }, []);
 
 useEffect(() => {
-  if (!user) return;
+  if (!authChecked || !user) return;
 
   loadAttendance(attendanceDate);
-}, [user, attendanceDate]);
+}, [authChecked, user, attendanceDate]);
 
 useEffect(() => {
-  if (!user) return;
+  if (!authChecked || !user) return;
 
   loadAttendanceSettings();
-}, [user]);
+}, [authChecked, user]);
 
 
 useEffect(() => {
@@ -1138,7 +1138,7 @@ const saveAttendance = async () => {
 
   // --- LOGIC ---
   const closestLeaves = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getMaldivesDateString();
     return [...leaves]
       .filter((l) => l.start && l.start > today)
       .sort((a, b) => new Date(a.start) - new Date(b.start))
@@ -1149,6 +1149,25 @@ const saveAttendance = async () => {
     () => new Set(publicHolidays.map((h) => h.date)),
     [publicHolidays]
   );
+
+const publicHolidayMap = useMemo(() => {
+  const map = new Map();
+
+  publicHolidays.forEach((holiday) => {
+    if (!holiday.date) return;
+
+    const holidayName = holiday.name || "Public Holiday";
+    const existingName = map.get(holiday.date);
+
+    map.set(
+      holiday.date,
+      existingName ? `${existingName}, ${holidayName}` : holidayName
+    );
+  });
+
+  return map;
+}, [publicHolidays]);
+
 const handleCalendarDateClick = (dateStr) => {
   if (selectedDate === dateStr) {
     setIsDatePanelClosing(true);
@@ -1162,29 +1181,38 @@ const handleCalendarDateClick = (dateStr) => {
     setIsDatePanelClosing(false);
   }
 };
+
 const renderCalendarDays = () => {
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = getMaldivesDateString();
 
   const cells = [];
 
   for (let i = 0; i < firstDay; i++) {
-    cells.push(<div key={`empty-${i}`} className="cal-day empty"></div>);
+    cells.push(
+      <div key={`empty-${i}`} className="cal-day empty"></div>
+    );
   }
 
   for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+      d
+    ).padStart(2, "0")}`;
+
     const dayOfWeek = new Date(year, month, d).getDay();
 
     const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
-    const isHoliday = holidayDateSet.has(dateStr);
+    const holidayName = publicHolidayMap.get(dateStr);
+    const isHoliday = Boolean(holidayName);
     const isToday = todayStr === dateStr;
 
     let className = "cal-day";
-    if (isWeekend || isHoliday) className += " cal-red";
+
+    if (isWeekend) className += " cal-red cal-weekend";
+    if (isHoliday) className += " cal-red cal-holiday";
     if (isToday) className += " cal-today";
     if (selectedDate === dateStr) className += " cal-selected";
 
@@ -1194,13 +1222,26 @@ const renderCalendarDays = () => {
         className={className}
         onClick={() => handleCalendarDateClick(dateStr)}
         style={{ cursor: "pointer" }}
+        title={isHoliday ? holidayName : ""}
       >
-        {d}
+        <span className="cal-date-number">{d}</span>
+
+        {isHoliday && (
+  <span
+    className={`cal-holiday-name ${
+      holidayName.length > 14 ? "marquee" : ""
+    }`}
+  >
+    <span>{holidayName}</span>
+  </span>
+)}
       </div>
     );
   }
+
   return cells;
 };
+
 
   const changeMonth = (offset) => {
     setViewDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
@@ -2274,15 +2315,17 @@ const loadYaumiyya = async (date) => {
 };
 
 useEffect(() => {
-  if (!user) return;
+  if (!authChecked || !user) return;
 
   loadYaumiyya(yaumiyyaDate);
-}, [user, yaumiyyaDate]);
+}, [authChecked, user, yaumiyyaDate]);
+
 
 useEffect(() => {
-  if (!user) return;
+  if (!authChecked || !user) return;
 
   let isCurrent = true;
+
 
   const loadReportYaumiyya = async () => {
     try {
@@ -2315,20 +2358,25 @@ useEffect(() => {
   return () => {
     isCurrent = false;
   };
-}, [user, reportDate]);
+}, [authChecked, user, reportDate]);
+
 
 useEffect(() => {
-  if (user && activeTab === "presence-board") {
+  if (!authChecked || !user) return;
+
+  if (activeTab === "presence-board") {
     loadYaumiyya(attendanceDate);
   }
-}, [user, activeTab, attendanceDate]);
+}, [authChecked, user, activeTab, attendanceDate]);
+
 
 useEffect(() => {
-  if (!user) return;
+  if (!authChecked || !user) return;
 
-  initializeVagutheePeriod();
+  loadHukuru(hukuruDate);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [user]);
+}, [authChecked, user, hukuruDate]);
+
 
 const saveYaumiyyaRecord = async (nextRecord) => {
   try {
@@ -2441,6 +2489,13 @@ const initializeVagutheePeriod = () => {
   setVagutheePeriodEnd(period.end);
   loadVagutheeRecords(period.start, period.end);
 };
+
+useEffect(() => {
+  if (!authChecked || !user) return;
+
+  initializeVagutheePeriod();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [authChecked, user]);
 
 const shiftVagutheePeriod = (direction) => {
   const base = new Date(`${vagutheePeriodStart}T00:00:00`);
@@ -2769,7 +2824,10 @@ const activeEmployeesWithEmail = activeEmployees.filter(
   (employee) => Boolean(normalizeEmail(employee.email))
 );
 
-const activeEmployeeNames = new Set(activeEmployees.map((emp) => emp.name));
+const activeEmployeeNames = new Set(
+  activeEmployees.map((emp) => normalizeNoticeName(emp.name))
+);
+
 const filteredEmployees = employees.filter((e) => {
   const sectionMatch = !dirFilter.section || e.section === dirFilter.section;
 
@@ -2804,7 +2862,7 @@ const availableBulkSupervisors = [...activeEmployees]
   );
 const filteredLeaves = leaves.filter(
   (l) =>
-    activeEmployeeNames.has(l.employee) &&
+    activeEmployeeNames.has(normalizeNoticeName(l.employee)) &&
     (l.employee || "").toLowerCase().includes(leaveSearch.toLowerCase())
 );
 
@@ -3092,13 +3150,61 @@ const getNextWorkingDay = (endDate) => {
     date.setDate(date.getDate() + 1);
   }
 };
+
+const getReturnToWorkDate = (leaveRecord) => {
+  if (!leaveRecord?.end) return "";
+
+  const holidaySet = new Set(publicHolidays.map((h) => h.date));
+  const staffName = normalizeNoticeName(leaveRecord.employee);
+
+  const date = new Date(`${leaveRecord.end}T00:00:00`);
+  date.setDate(date.getDate() + 1);
+
+  let safetyCounter = 0;
+
+  while (safetyCounter < 5000) {
+    const dateStr = formatLocalDateString(date);
+    const dayOfWeek = date.getDay();
+
+    const isFriday = dayOfWeek === 5;
+    const isSaturday = dayOfWeek === 6;
+    const isHoliday = holidaySet.has(dateStr);
+
+    const anotherLeave = leaves.find(
+      (leave) =>
+        leave.id !== leaveRecord.id &&
+        normalizeNoticeName(leave.employee) === staffName &&
+        leave.start &&
+        leave.end &&
+        leave.start <= dateStr &&
+        leave.end >= dateStr
+    );
+
+    if (anotherLeave) {
+      date.setTime(new Date(`${anotherLeave.end}T00:00:00`).getTime());
+      date.setDate(date.getDate() + 1);
+      safetyCounter += 1;
+      continue;
+    }
+
+    if (!isFriday && !isSaturday && !isHoliday) {
+      return dateStr;
+    }
+
+    date.setDate(date.getDate() + 1);
+    safetyCounter += 1;
+  }
+
+  return "";
+};
+
 const employeesOnSelectedDate = selectedDate
   ? leaves.filter((l) => l.start <= selectedDate && l.end >= selectedDate)
   : [];
 const staffOnLeaveByDate = leaveCheckDate
   ? leaves.filter((l) => l.start <= leaveCheckDate && l.end >= leaveCheckDate)
   : [];
-const selectedBaseDate = leaveCheckDate || new Date().toISOString().split("T")[0];
+const selectedBaseDate = leaveCheckDate || getMaldivesDateString();
 
 const formatDateLocal = (date) => {
   const year = date.getFullYear();
@@ -3114,11 +3220,11 @@ const tomorrowStr = (() => {
 })();
 
 const returningTomorrow = leaves.filter(
-  (l) => getNextWorkingDay(l.end) === tomorrowStr
+  (l) => getReturnToWorkDate(l) === tomorrowStr
 );
 
 const returningThisWeek = leaves.filter((l) => {
-  const returnDate = getNextWorkingDay(l.end);
+  const returnDate = getReturnToWorkDate(l);
   if (!returnDate) return false;
 
   const base = new Date(selectedBaseDate);
@@ -3451,7 +3557,7 @@ const filteredVagutheeRecords = vagutheeRecords.filter((record) =>
 );
 
 const isStaffOnLeaveToday = (staffName) => {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getMaldivesDateString();
 
   return leaves.some(
     (l) =>
@@ -5281,90 +5387,123 @@ return (
                 </div>
               </form>
 
-              <form className="panel" onSubmit={saveLeave}>
-  <h2>Add Leave Record</h2>
+              <form className="panel leave-entry-panel" onSubmit={saveLeave}>
+  <div className="leave-entry-header">
+    <div>
+      <span className="leave-entry-kicker">LEAVE MANAGEMENT</span>
+      <h2>Add Leave Record</h2>
+      <p className="muted">
+        Select staff, choose a leave period, or enter the number of working leave days.
+      </p>
+    </div>
 
-  <div className="form-stack">
-    <select
-      required
-      value={leaveForm.employee}
-      onChange={(e) =>
-        setLeaveForm({
-          ...leaveForm,
-          employee: e.target.value
-        })
-      }
-    >
-      <option value="">Select employee *</option>
+    <span className="leave-entry-status-pill">
+      Auto calculates days
+    </span>
+  </div>
 
-      {activeEmployees.map((emp) => (
-        <option key={emp.id} value={emp.name}>
-          {emp.name}
-        </option>
-      ))}
-    </select>
+  <div className="leave-entry-form">
+    <label className="leave-entry-field full">
+      <span>Staff Member</span>
 
-    <label className="muted">Leave Start Date</label>
+      <select
+        required
+        value={leaveForm.employee}
+        onChange={(e) =>
+          setLeaveForm({
+            ...leaveForm,
+            employee: e.target.value
+          })
+        }
+      >
+        <option value="">Select employee *</option>
 
-    <input
-      required
-      type="date"
-      value={leaveForm.start}
-      onChange={(e) => handleLeaveStartChange(e.target.value)}
-    />
+        {activeEmployees.map((emp) => (
+          <option key={emp.id} value={emp.name}>
+            {emp.name}
+          </option>
+        ))}
+      </select>
+    </label>
 
-    <label className="muted">Leave End Date</label>
+    <div className="leave-date-grid">
+      <label className="leave-entry-field date-card">
+        <span>Leave Start Date</span>
 
-    <input
-      type="date"
-      value={leaveForm.end}
-      onChange={(e) => handleLeaveEndChange(e.target.value)}
-    />
+        <input
+          required
+          type="date"
+          value={leaveForm.start}
+          onChange={(e) => handleLeaveStartChange(e.target.value)}
+        />
+      </label>
 
-    <p className="muted text-center" style={{ margin: "0" }}>
-      — OR —
-    </p>
+      <label className="leave-entry-field date-card">
+        <span>Leave End Date</span>
 
-    <label className="muted">Number of Leave Days</label>
+        <input
+          type="date"
+          value={leaveForm.end}
+          onChange={(e) => handleLeaveEndChange(e.target.value)}
+        />
+      </label>
+    </div>
 
-    <input
-      type="number"
-      min="1"
-      step="1"
-      inputMode="numeric"
-      placeholder="Example: 5"
-      disabled={!leaveForm.start}
-      value={leaveForm.leaveDays}
-      onChange={(e) => handleLeaveDaysChange(e.target.value)}
-    />
+    <div className="leave-or-divider">
+      <span></span>
+      <strong>OR</strong>
+      <span></span>
+    </div>
 
-    <p className="muted" style={{ marginTop: "-4px" }}>
-      Fridays, Saturdays and saved public holidays are excluded automatically.
-    </p>
+    <label className="leave-entry-field full">
+      <span>Number of Leave Days</span>
 
-    {leaveForm.start && leaveForm.end && (
-      <div className="closest-list mt-2">
-        <div className="closest-item">
-          <span>Total Calendar Days</span>
-          <strong>{leaveFormSummary.totalCalendarDays} days</strong>
-        </div>
+      <input
+        type="number"
+        min="1"
+        step="1"
+        inputMode="numeric"
+        placeholder="Example: 5"
+        disabled={!leaveForm.start}
+        value={leaveForm.leaveDays}
+        onChange={(e) => handleLeaveDaysChange(e.target.value)}
+      />
+    </label>
 
-        <div className="closest-item">
-          <strong>Number of Leave Days</strong>
-          <strong>{leaveFormSummary.leaveDays} days</strong>
-        </div>
+    <div className="leave-entry-summary">
+      <div className="leave-summary-row">
+        <span>Total Calendar Days</span>
+        <strong>
+          {leaveForm.start && leaveForm.end
+            ? `${leaveFormSummary.totalCalendarDays} days`
+            : "—"}
+        </strong>
       </div>
-    )}
+
+      <div className="leave-summary-row highlight">
+        <span>Number of Leave Days</span>
+        <strong>
+          {leaveForm.start && leaveForm.end
+            ? `${leaveFormSummary.leaveDays} days`
+            : "—"}
+        </strong>
+      </div>
+
+      <p>
+        Fridays, Saturdays and saved public holidays are excluded automatically.
+      </p>
+    </div>
 
     <button
       type="submit"
-      className="primary-btn"
+      className="primary-btn leave-save-btn"
       disabled={isLoading}
     >
       {isLoading ? "Saving..." : "Save Leave"}
     </button>
   </div>
 </form>
+
 
               <div className="panel">
                 <form onSubmit={addHoliday}>
@@ -5980,26 +6119,32 @@ return (
       <table className="modern-table">
         <thead>
           <tr>
-            <th>Staff</th>
-            <th>Leave Start</th>
-            <th>Leave End</th>
-            <th>Days</th>
-          </tr>
+  <th>Staff</th>
+  <th>Leave Start</th>
+  <th>Leave End</th>
+  <th>Back to Work</th>
+  <th>Days</th>
+</tr>
         </thead>
 
         <tbody>
           {staffOnLeaveByDate.map((l) => (
-            <tr key={l.id}>
-              <td><strong>{l.employee}</strong></td>
-              <td>{l.start}</td>
-              <td>{l.end}</td>
-              <td>{calculateLeaveDays(l.start, l.end)}</td>
-            </tr>
-          ))}
+  <tr key={l.id}>
+    <td><strong>{l.employee}</strong></td>
+    <td>{l.start}</td>
+    <td>{l.end}</td>
+    <td>
+      <span className="badge return-work-badge">
+        {getReturnToWorkDate(l) || "—"}
+      </span>
+    </td>
+    <td>{calculateLeaveDays(l.start, l.end)}</td>
+  </tr>
+))}
 
           {staffOnLeaveByDate.length === 0 && (
             <tr>
-              <td colSpan="4" className="muted text-center">
+              <td colSpan="5" className="muted text-center">
                 No staff are on leave on this date.
               </td>
             </tr>
@@ -6017,7 +6162,7 @@ return (
           <div>
             <strong>{l.employee}</strong>
             <div className="muted">
-              Return to work: {getNextWorkingDay(l.end)}
+              Return to work: {getReturnToWorkDate(l)}
             </div>
           </div>
         </div>
@@ -6036,7 +6181,7 @@ return (
           <div>
             <strong>{l.employee}</strong>
             <div className="muted">
-              Return to work: {getNextWorkingDay(l.end)}
+              Return to work: {getReturnToWorkDate(l)}
             </div>
           </div>
         </div>
