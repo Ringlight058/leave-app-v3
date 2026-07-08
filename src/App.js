@@ -99,6 +99,7 @@ function App() {
   const [leaveSearch, setLeaveSearch] = useState("");
   const [leaveBySectionSearch, setLeaveBySectionSearch] = useState("");
   const [leaveBySectionFilter, setLeaveBySectionFilter] = useState("");
+  const [leaveBySectionSupervisorFilter, setLeaveBySectionSupervisorFilter] = useState("");
   const [showSalaamFRL, setShowSalaamFRL] = useState(false);
   const [staffGroups, setStaffGroups] = useState([]);
   const [groupForm, setGroupForm] = useState({ name: "", members: [] });
@@ -2822,6 +2823,16 @@ const leaveBySectionOptions = [
   )
 ].sort((a, b) => a.localeCompare(b));
 
+const leaveBySectionSupervisorOptions = [
+  ...new Set(
+    activeEmployees
+      .map((employee) =>
+        (getSupervisorDisplayName(employee) || "").trim()
+      )
+      .filter(Boolean)
+  )
+].sort((a, b) => a.localeCompare(b));
+
 const leaveBySectionRecords = [...leaves]
   .map((leave) => {
     const employee = leaveBySectionEmployeeMap.get(
@@ -2829,11 +2840,15 @@ const leaveBySectionRecords = [...leaves]
     );
 
     return {
-      ...leave,
-      employeeInfo: employee || null,
-      section: employee?.section || "Unassigned Section",
-      designation: employee?.designation || ""
-    };
+  ...leave,
+  employeeInfo: employee || null,
+  section: employee?.section || "Unassigned Section",
+  designation: employee?.designation || "",
+  supervisor: employee
+    ? getSupervisorDisplayName(employee) || "No Supervisor"
+    : "No Supervisor"
+};
+
   })
   .filter((leave) => {
     const today = getMaldivesDateString();
@@ -2854,12 +2869,18 @@ const leaveBySectionRecords = [...leaves]
         .toLowerCase()
         .includes(leaveBySectionSearch.toLowerCase());
 
+const matchesSupervisor =
+  !leaveBySectionSupervisorFilter ||
+  leave.supervisor === leaveBySectionSupervisorFilter;
+
     return (
-      isUpcomingLeave &&
-      isActiveStaff &&
-      matchesSection &&
-      matchesStaffSearch
-    );
+  isUpcomingLeave &&
+  isActiveStaff &&
+  matchesSection &&
+  matchesSupervisor &&
+  matchesStaffSearch
+);
+
   })
   .sort((a, b) => new Date(a.start) - new Date(b.start))
   .slice(0, 40);
@@ -2888,6 +2909,7 @@ useEffect(() => {
 }, [
   activeTab,
   leaveBySectionFilter,
+  leaveBySectionSupervisorFilter,
   leaveBySectionSearch,
   leaveBySectionRecords.length
 ]);
@@ -3653,7 +3675,7 @@ return (
 
   <div className="brand-text">
     <span className="brand-title">Funadhoo Council</span>
-    <small className="brand-version">V4.0</small>
+    <small className="brand-version">V5.0</small>
   </div>
 </div>
         <ul className="nav-menu">
@@ -3806,7 +3828,7 @@ return (
     : activeTab.replace(/-/g, " ").toUpperCase()}
 </h1>
           <div className="user-profile">
-  <span>Latest Build: 2026/06/18 08:53</span>
+  <span>Build V5.0 • 08 Jul 2026</span>
   <button className="logout-btn" onClick={handleLogout}>
     Logout
   </button>
@@ -5827,24 +5849,39 @@ return (
 
       <div className="filter-group">
         <select
-          value={leaveBySectionFilter}
-          onChange={(e) => setLeaveBySectionFilter(e.target.value)}
-        >
-          <option value="">All Sections</option>
+  value={leaveBySectionFilter}
+  onChange={(e) => setLeaveBySectionFilter(e.target.value)}
+>
+  <option value="">All Sections</option>
 
-          {leaveBySectionOptions.map((section) => (
-            <option key={section} value={section}>
-              {section}
-            </option>
-          ))}
-        </select>
+  {leaveBySectionOptions.map((section) => (
+    <option key={section} value={section}>
+      {section}
+    </option>
+  ))}
+</select>
 
-        <input
-          type="text"
-          placeholder="Search staff name..."
-          value={leaveBySectionSearch}
-          onChange={(e) => setLeaveBySectionSearch(e.target.value)}
-        />
+<select
+  value={leaveBySectionSupervisorFilter}
+  onChange={(e) =>
+    setLeaveBySectionSupervisorFilter(e.target.value)
+  }
+>
+  <option value="">All Supervisors</option>
+
+  {leaveBySectionSupervisorOptions.map((supervisor) => (
+    <option key={supervisor} value={supervisor}>
+      {supervisor}
+    </option>
+  ))}
+</select>
+
+<input
+  type="text"
+  placeholder="Search staff name..."
+  value={leaveBySectionSearch}
+  onChange={(e) => setLeaveBySectionSearch(e.target.value)}
+/>
 
         <button className="refresh-btn" onClick={refreshData}>
           Refresh
@@ -5880,6 +5917,10 @@ return (
             <span className="muted">
               {leave.designation || "No designation"}
             </span>
+
+<span className="muted">
+  Supervisor: {leave.supervisor}
+</span>
           </div>
 
           <div

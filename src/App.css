@@ -3660,3 +3660,223 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
     text-align: center;
   }
 }
+
+/* ======================================
+   LEAVE BY SECTION - FILTER + CARD POLISH
+====================================== */
+
+.leave-section-page {
+  overflow: hidden;
+  border: 1px solid #dbeafe;
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 30%),
+    #ffffff;
+}
+
+/* Header / filter area */
+.leave-section-page > .table-header {
+  align-items: flex-start;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #f8fbff, #ffffff);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+}
+
+.leave-section-page > .table-header h2 {
+  margin-bottom: 8px;
+}
+
+.leave-section-page > .table-header .muted {
+  max-width: 640px;
+  line-height: 1.55;
+}
+
+.leave-section-page .filter-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(170px, 1fr)) auto;
+  gap: 10px;
+  align-items: center;
+  width: min(100%, 920px);
+}
+
+.leave-section-page .filter-group select,
+.leave-section-page .filter-group input {
+  min-width: 0;
+  height: 44px;
+  border-radius: 12px;
+  background: #ffffff;
+  border-color: #cbd5e1;
+  font-weight: 600;
+}
+
+.leave-section-page .filter-group select:focus,
+.leave-section-page .filter-group input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.11);
+}
+
+.leave-section-page .filter-group .refresh-btn {
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+/* Summary card */
+.leave-section-summary {
+  position: relative;
+  overflow: hidden;
+  min-height: 76px;
+  border: 1px solid #bfdbfe;
+  border-left: 5px solid #2563eb;
+  background:
+    radial-gradient(circle at right, rgba(37, 99, 235, 0.11), transparent 26%),
+    linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+}
+
+.leave-section-summary strong {
+  color: #0f172a;
+}
+
+.leave-section-summary .badge {
+  position: relative;
+  z-index: 1;
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+/* Leave cards */
+.leave-section-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 108px;
+  border: 1px solid #dbe3ee;
+  background: rgba(248, 250, 252, 0.82);
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    border-color 0.22s ease,
+    background 0.22s ease;
+}
+
+.leave-section-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: linear-gradient(180deg, #2563eb, #60a5fa);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+
+.leave-section-card:hover {
+  transform: translateY(-4px);
+  border-color: #93c5fd;
+  background: #ffffff;
+  box-shadow: 0 18px 38px rgba(30, 64, 175, 0.12);
+}
+
+.leave-section-card:hover::before {
+  opacity: 1;
+}
+
+.leave-section-card .closest-info {
+  gap: 5px;
+}
+
+.leave-section-card .closest-info strong {
+  color: #0f172a;
+  font-size: 0.98rem;
+}
+
+.leave-section-card .closest-info span {
+  line-height: 1.35;
+}
+
+.leave-section-card .badge {
+  border-radius: 10px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  font-weight: 800;
+}
+
+.leave-section-card .closest-tag {
+  min-width: 72px;
+  text-align: center;
+  background: #dcfce7;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+/* Empty state */
+.leave-section-empty {
+  padding: 32px;
+  border: 1px dashed #93c5fd;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #eff6ff, #ffffff);
+  color: #475569;
+  text-align: center;
+  font-weight: 700;
+  animation: leaveSectionEmptyPop 0.35s ease-out;
+}
+
+@keyframes leaveSectionEmptyPop {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Tablet layout */
+@media (max-width: 1150px) {
+  .leave-section-page > .table-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .leave-section-page .filter-group {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .leave-section-page .filter-group .refresh-btn {
+    width: 100%;
+  }
+}
+
+/* Mobile layout */
+@media (max-width: 700px) {
+  .leave-section-page > .table-header {
+    padding: 14px;
+  }
+
+  .leave-section-page .filter-group {
+    grid-template-columns: 1fr;
+  }
+
+  .leave-section-summary,
+  .leave-section-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .leave-section-card > div:last-child {
+    width: 100%;
+    align-items: stretch !important;
+  }
+
+  .leave-section-card .badge,
+  .leave-section-card .closest-tag,
+  .leave-section-summary .badge {
+    width: 100%;
+    text-align: center;
+  }
+}
