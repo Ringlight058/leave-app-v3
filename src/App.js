@@ -97,6 +97,8 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [viewDate, setViewDate] = useState(new Date());
   const [leaveSearch, setLeaveSearch] = useState("");
+  const [leaveBySectionSearch, setLeaveBySectionSearch] = useState("");
+  const [leaveBySectionFilter, setLeaveBySectionFilter] = useState("");
   const [showSalaamFRL, setShowSalaamFRL] = useState(false);
   const [staffGroups, setStaffGroups] = useState([]);
   const [groupForm, setGroupForm] = useState({ name: "", members: [] });
@@ -2805,6 +2807,91 @@ const filteredLeaves = leaves.filter(
     (l.employee || "").toLowerCase().includes(leaveSearch.toLowerCase())
 );
 
+const leaveBySectionEmployeeMap = new Map(
+  activeEmployees.map((employee) => [
+    normalizeNoticeName(employee.name),
+    employee
+  ])
+);
+
+const leaveBySectionOptions = [
+  ...new Set(
+    activeEmployees
+      .map((employee) => (employee.section || "").trim())
+      .filter(Boolean)
+  )
+].sort((a, b) => a.localeCompare(b));
+
+const leaveBySectionRecords = [...leaves]
+  .map((leave) => {
+    const employee = leaveBySectionEmployeeMap.get(
+      normalizeNoticeName(leave.employee)
+    );
+
+    return {
+      ...leave,
+      employeeInfo: employee || null,
+      section: employee?.section || "Unassigned Section",
+      designation: employee?.designation || ""
+    };
+  })
+  .filter((leave) => {
+    const today = getMaldivesDateString();
+
+    const isUpcomingLeave =
+      leave.start &&
+      leave.start > today;
+
+    const isActiveStaff = Boolean(leave.employeeInfo);
+
+    const matchesSection =
+      !leaveBySectionFilter ||
+      leave.section === leaveBySectionFilter;
+
+    const matchesStaffSearch =
+      !leaveBySectionSearch ||
+      (leave.employee || "")
+        .toLowerCase()
+        .includes(leaveBySectionSearch.toLowerCase());
+
+    return (
+      isUpcomingLeave &&
+      isActiveStaff &&
+      matchesSection &&
+      matchesStaffSearch
+    );
+  })
+  .sort((a, b) => new Date(a.start) - new Date(b.start))
+  .slice(0, 40);
+
+useEffect(() => {
+  if (activeTab !== "leave-by-section") return;
+
+  requestAnimationFrame(() => {
+    animate(".leave-section-summary", {
+      opacity: [0, 1],
+      translateY: [12, 0],
+      scale: [0.98, 1],
+      duration: 420,
+      easing: "outExpo"
+    });
+
+    animate(".leave-section-card", {
+      opacity: [0, 1],
+      translateY: [22, 0],
+      scale: [0.96, 1],
+      delay: stagger(45),
+      duration: 560,
+      easing: "outExpo"
+    });
+  });
+}, [
+  activeTab,
+  leaveBySectionFilter,
+  leaveBySectionSearch,
+  leaveBySectionRecords.length
+]);
+
 const noticeToday = getMaldivesDateString();
 
 const visibleNoticeBoardNotices = [...notices]
@@ -3631,6 +3718,13 @@ return (
   >
     Staff on Leave
   </li>
+
+<li
+  className={activeTab === "leave-by-section" ? "active" : ""}
+  onClick={() => closeSidebarAndGo("leave-by-section")}
+>
+  Leave by Section
+</li>
 
   <li
     className={activeTab === "leave-trend" ? "active" : ""}
@@ -5563,7 +5657,7 @@ return (
     )}
   </div>
 </div>
-<div className="panel full-width">
+<div className="panel full-width leave-section-page">
   <div className="table-header">
     <div>
       <h2>Random Hukuru Selector</h2>
@@ -5718,6 +5812,105 @@ return (
     </div>
   </div>
 )}
+
+{/* LEAVE BY SECTION TAB */}
+{activeTab === "leave-by-section" && (
+  <div className="panel full-width leave-section-page">
+    <div className="table-header">
+      <div>
+        <h2>Leave by Section</h2>
+        <p className="muted">
+          Shows the closest 40 upcoming leave records with section filter and
+          staff name search.
+        </p>
+      </div>
+
+      <div className="filter-group">
+        <select
+          value={leaveBySectionFilter}
+          onChange={(e) => setLeaveBySectionFilter(e.target.value)}
+        >
+          <option value="">All Sections</option>
+
+          {leaveBySectionOptions.map((section) => (
+            <option key={section} value={section}>
+              {section}
+            </option>
+          ))}
+        </select>
+
+        <input
+          type="text"
+          placeholder="Search staff name..."
+          value={leaveBySectionSearch}
+          onChange={(e) => setLeaveBySectionSearch(e.target.value)}
+        />
+
+        <button className="refresh-btn" onClick={refreshData}>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <div className="closest-item leave-section-summary">
+      <div>
+        <strong>Closest upcoming leave records</strong>
+        <div className="muted">
+          {leaveBySectionFilter
+            ? `Filtered by section: ${leaveBySectionFilter}`
+            : "Showing all sections"}
+        </div>
+      </div>
+
+      <span className="badge">
+        {leaveBySectionRecords.length} shown
+      </span>
+    </div>
+
+    <div className="closest-list mt-4">
+      {leaveBySectionRecords.map((leave) => (
+        <div key={leave.id} className="closest-item leave-section-card">
+          <div className="closest-info">
+            <strong>{leave.employee}</strong>
+
+            <span>
+              {leave.start} to {leave.end}
+            </span>
+
+            <span className="muted">
+              {leave.designation || "No designation"}
+            </span>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              flexDirection: "column",
+              gap: "8px"
+            }}
+          >
+            <span className="badge">
+              {leave.section}
+            </span>
+
+            <span className="closest-tag">
+              {calculateLeaveDays(leave.start, leave.end)} days
+            </span>
+          </div>
+        </div>
+      ))}
+
+      {leaveBySectionRecords.length === 0 && (
+        <p className="muted leave-section-empty">
+          No upcoming leave records found for this filter.
+        </p>
+      )}
+    </div>
+  </div>
+)}
+
+
 {/* STAFF ON LEAVE TAB */}
 {activeTab === "staff-on-leave" && (
   <div className="panel full-width random-hukuru-panel">

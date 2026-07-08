@@ -3547,3 +3547,116 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
     text-align: center;
   }
 }
+
+/* ======================================
+   LEAVE BY SECTION ANIMATIONS
+====================================== */
+
+.leave-section-page {
+  overflow: hidden;
+}
+
+.leave-section-summary {
+  position: relative;
+  overflow: hidden;
+  border-left: 4px solid var(--primary);
+  background:
+    linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+}
+
+.leave-section-summary::after {
+  content: "";
+  position: absolute;
+  top: -70px;
+  right: -70px;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.leave-section-card {
+  position: relative;
+  overflow: hidden;
+  transform-origin: center;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    border-color 0.22s ease,
+    background 0.22s ease;
+}
+
+.leave-section-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, #2563eb, #60a5fa);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+
+.leave-section-card:hover {
+  transform: translateY(-4px) scale(1.01);
+  border-color: #bfdbfe;
+  background: #f8fbff;
+  box-shadow: 0 16px 34px rgba(30, 64, 175, 0.12);
+}
+
+.leave-section-card:hover::before {
+  opacity: 1;
+}
+
+.leave-section-card .closest-info {
+  position: relative;
+  z-index: 1;
+}
+
+.leave-section-card .badge,
+.leave-section-card .closest-tag {
+  position: relative;
+  z-index: 1;
+}
+
+.leave-section-card .closest-tag {
+  box-shadow: 0 8px 18px rgba(22, 101, 52, 0.08);
+}
+
+.leave-section-empty {
+  padding: 28px;
+  border: 1px dashed #93c5fd;
+  border-radius: 16px;
+  background: #eff6ff;
+  text-align: center;
+  animation: leaveSectionEmptyPop 0.35s ease-out;
+}
+
+@keyframes leaveSectionEmptyPop {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 700px) {
+  .leave-section-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .leave-section-card > div:last-child {
+    width: 100%;
+    align-items: stretch !important;
+  }
+
+  .leave-section-card .badge,
+  .leave-section-card .closest-tag {
+    width: 100%;
+    text-align: center;
+  }
+}
