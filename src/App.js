@@ -100,6 +100,8 @@ function App() {
   const [leaveBySectionSearch, setLeaveBySectionSearch] = useState("");
   const [leaveBySectionFilter, setLeaveBySectionFilter] = useState("");
   const [leaveBySectionSupervisorFilter, setLeaveBySectionSupervisorFilter] = useState("");
+  const [handoverModal, setHandoverModal] = useState(null);
+  const [handoverStaffList, setHandoverStaffList] = useState(["", "", ""]);
   const [showSalaamFRL, setShowSalaamFRL] = useState(false);
   const [staffGroups, setStaffGroups] = useState([]);
   const [groupForm, setGroupForm] = useState({ name: "", members: [] });
@@ -137,6 +139,15 @@ function App() {
   const [bulkSupervisorId, setBulkSupervisorId] = useState("");
   const [bulkSupervisorPinInput, setBulkSupervisorPinInput] = useState("");
   const [isBulkSupervisorSaving, setIsBulkSupervisorSaving] = useState(false);
+
+  const [bulkSectionModal, setBulkSectionModal] = useState(false);
+  const [bulkSectionName, setBulkSectionName] = useState("");
+  const [bulkSectionPinInput, setBulkSectionPinInput] = useState("");
+  const [isBulkSectionSaving, setIsBulkSectionSaving] = useState(false);
+
+  const [employeeDeletePinModal, setEmployeeDeletePinModal] = useState(null);
+  const [employeeDeletePinInput, setEmployeeDeletePinInput] = useState("");
+
   const [employeeEmailPinInput, setEmployeeEmailPinInput] = useState("");
   const [notices, setNotices] = useState([]);
   const [noticeFilter, setNoticeFilter] = useState("all");
@@ -2009,6 +2020,81 @@ const saveBulkSupervisor = async (e) => {
   }
 };
 
+const openBulkSectionModal = () => {
+  if (selectedEmployeeIds.length === 0) {
+    showToast("Select at least one staff member first.", "error");
+    return;
+  }
+
+  setBulkSectionName("");
+  setBulkSectionPinInput("");
+  setBulkSectionModal(true);
+};
+
+const closeBulkSectionModal = () => {
+  setBulkSectionModal(false);
+  setBulkSectionName("");
+  setBulkSectionPinInput("");
+};
+
+const saveBulkSection = async (e) => {
+  e.preventDefault();
+
+  if (selectedDirectoryEmployees.length === 0) {
+    return alert("No staff members are selected.");
+  }
+
+  const safeSectionName = (bulkSectionName || "").trim();
+
+  if (!safeSectionName) {
+    return alert("Please enter or select a section name.");
+  }
+
+  if (bulkSectionPinInput !== "2391") {
+    showToast("Incorrect PIN. Sections were not changed.", "error");
+    return;
+  }
+
+  setIsBulkSectionSaving(true);
+
+  try {
+    const batch = writeBatch(db);
+
+    selectedDirectoryEmployees.forEach((employee) => {
+      batch.set(
+        doc(db, "employees", employee.id),
+        { section: safeSectionName },
+        { merge: true }
+      );
+    });
+
+    await batch.commit();
+
+    setEmployees((previous) =>
+      previous.map((employee) =>
+        selectedEmployeeIds.includes(employee.id)
+          ? { ...employee, section: safeSectionName }
+          : employee
+      )
+    );
+
+    const count = selectedDirectoryEmployees.length;
+
+    setSelectedEmployeeIds([]);
+    closeBulkSectionModal();
+
+    showToast(
+      `${count} staff member${count === 1 ? "" : "s"} moved to ${safeSectionName}.`
+    );
+  } catch (error) {
+    console.error("Bulk section update failed:", error);
+    showToast("Could not update staff sections.", "error");
+  } finally {
+    setIsBulkSectionSaving(false);
+  }
+};
+
+
 const toggleEmployeeStatus = (employee) => {
   setStatusPinInput("");
   setStatusPinModal({ employee });
@@ -2061,24 +2147,64 @@ const confirmEmployeeStatusWithPin = () => {
     }
   });
 };
-const removeEmployee = async (id) => {
+
+
+const removeEmployee = (employeeOrId) => {
+  const employee =
+    typeof employeeOrId === "string"
+      ? employees.find((item) => item.id === employeeOrId)
+      : employeeOrId;
+
+  if (!employee) {
+    showToast("Could not identify staff member.", "error");
+    return;
+  }
+
+  setEmployeeDeletePinInput("");
+  setEmployeeDeletePinModal(employee);
+};
+
+const confirmEmployeeDeleteWithPin = () => {
+  if (employeeDeletePinInput !== "2391") {
+    showToast("Incorrect PIN. Staff was not deleted.", "error");
+    return;
+  }
+
+  const employee = employeeDeletePinModal;
+
+  if (!employee) return;
+
+  setEmployeeDeletePinModal(null);
+  setEmployeeDeletePinInput("");
+
   openConfirmModal({
-    title: "Delete Employee",
-    message: "Are you sure you want to delete this employee? This action cannot be undone.",
+    title: "Delete Staff",
+    message: `PIN verified. Are you sure you want to delete ${employee.name}? This action cannot be undone.`,
     confirmText: "Delete",
     onConfirm: async () => {
       try {
-        if (id) await deleteDoc(doc(db, "employees", id));
-        setEmployees((prev) => prev.filter((item) => item.id !== id));
-        showToast("Employee deleted successfully.");
+        await deleteDoc(doc(db, "employees", employee.id));
+
+        setEmployees((prev) =>
+          prev.filter((item) => item.id !== employee.id)
+        );
+
+        setSelectedEmployeeIds((prev) =>
+          prev.filter((id) => id !== employee.id)
+        );
+
+        showToast("Staff deleted successfully.");
       } catch (error) {
-        showToast("Could not delete employee record.", "error");
+        console.error("Could not delete staff:", error);
+        showToast("Could not delete staff record.", "error");
       } finally {
         closeConfirmModal();
       }
     }
   });
 };
+
+
   const saveLeave = async (e) => {
   e.preventDefault();
 
@@ -2860,6 +2986,15 @@ const availableBulkSupervisors = [...activeEmployees]
   .sort((a, b) =>
     (a.name || "").localeCompare(b.name || "")
   );
+
+const directorySectionOptions = [
+  ...new Set(
+    employees
+      .map((employee) => (employee.section || "").trim())
+      .filter(Boolean)
+  )
+].sort((a, b) => a.localeCompare(b));
+
 const filteredLeaves = leaves.filter(
   (l) =>
     activeEmployeeNames.has(normalizeNoticeName(l.employee)) &&
@@ -2891,6 +3026,19 @@ const leaveBySectionSupervisorOptions = [
   )
 ].sort((a, b) => a.localeCompare(b));
 
+
+const normalizeHandoverList = (value) => {
+  if (Array.isArray(value)) {
+    return value.filter(Boolean).slice(0, 3);
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    return [value.trim()];
+  }
+
+  return [];
+};
+
 const leaveBySectionRecords = [...leaves]
   .map((leave) => {
     const employee = leaveBySectionEmployeeMap.get(
@@ -2904,7 +3052,8 @@ const leaveBySectionRecords = [...leaves]
   designation: employee?.designation || "",
   supervisor: employee
     ? getSupervisorDisplayName(employee) || "No Supervisor"
-    : "No Supervisor"
+    : "No Supervisor",
+  handoverTo: normalizeHandoverList(leave.workHandoverTo)
 };
 
   })
@@ -2942,6 +3091,85 @@ const matchesSupervisor =
   })
   .sort((a, b) => new Date(a.start) - new Date(b.start))
   .slice(0, 40);
+
+
+const openWorkHandoverModal = (leave) => {
+  const savedList = normalizeHandoverList(
+    leave.workHandoverTo || leave.handoverTo
+  );
+
+  setHandoverModal(leave);
+  setHandoverStaffList([
+    savedList[0] || "",
+    savedList[1] || "",
+    savedList[2] || ""
+  ]);
+};
+
+const closeWorkHandoverModal = () => {
+  setHandoverModal(null);
+  setHandoverStaffList(["", "", ""]);
+};
+
+const updateHandoverStaff = (index, value) => {
+  setHandoverStaffList((previous) => {
+    const next = [...previous];
+    next[index] = value;
+    return next;
+  });
+};
+
+const saveWorkHandover = async (e) => {
+  e.preventDefault();
+
+  if (!handoverModal?.id) return;
+
+  const selectedHandoverStaff = handoverStaffList
+    .map((name) => name.trim())
+    .filter(Boolean);
+
+  const uniqueSelectedStaff = new Set(
+    selectedHandoverStaff.map((name) => normalizeNoticeName(name))
+  );
+
+  if (uniqueSelectedStaff.size !== selectedHandoverStaff.length) {
+    return alert("Please select different staff members for each handover slot.");
+  }
+
+  setIsLoading(true);
+
+  try {
+    await setDoc(
+      doc(db, "leaves", handoverModal.id),
+      {
+        workHandoverTo: selectedHandoverStaff
+      },
+      { merge: true }
+    );
+
+    setLeaves((previous) =>
+      previous.map((leave) =>
+        leave.id === handoverModal.id
+          ? { ...leave, workHandoverTo: selectedHandoverStaff }
+          : leave
+      )
+    );
+
+    closeWorkHandoverModal();
+
+    showToast(
+      selectedHandoverStaff.length > 0
+        ? "Work handover saved."
+        : "Work handover cleared."
+    );
+  } catch (error) {
+    console.error("Could not save work handover:", error);
+    showToast("Could not save work handover.", "error");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
 useEffect(() => {
   if (activeTab !== "leave-by-section") return;
@@ -5559,6 +5787,15 @@ return (
       Change Supervisor
     </button>
 
+<button
+  type="button"
+  className="secondary-btn-sm"
+  disabled={selectedEmployeeIds.length === 0}
+  onClick={openBulkSectionModal}
+>
+  Change Section
+</button>
+
     {selectedEmployeeIds.length > 0 && (
       <button
         type="button"
@@ -6045,41 +6282,65 @@ return (
 
     <div className="closest-list mt-4">
       {leaveBySectionRecords.map((leave) => (
-        <div key={leave.id} className="closest-item leave-section-card">
-          <div className="closest-info">
-            <strong>{leave.employee}</strong>
+  <div key={leave.id} className="closest-item leave-section-card handover-leave-card">
+    <div className="closest-info">
+      <strong>{leave.employee}</strong>
 
-            <span>
-              {leave.start} to {leave.end}
-            </span>
+      <span>
+        {leave.start} to {leave.end}
+      </span>
 
-            <span className="muted">
-              {leave.designation || "No designation"}
-            </span>
+      <span className="muted">
+        {leave.designation || "No designation"}
+      </span>
 
-<span className="muted">
-  Supervisor: {leave.supervisor}
-</span>
-          </div>
+      <span className="muted">
+        Supervisor: {leave.supervisor}
+      </span>
+    </div>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-end",
-              flexDirection: "column",
-              gap: "8px"
-            }}
-          >
-            <span className="badge">
-              {leave.section}
-            </span>
+    <div className="handover-column">
+      <span className="handover-label">
+        Work Handover
+      </span>
 
-            <span className="closest-tag">
-              {calculateLeaveDays(leave.start, leave.end)} days
-            </span>
-          </div>
-        </div>
-      ))}
+      {leave.handoverTo.length > 0 ? (
+  <div className="handover-name-list">
+    {leave.handoverTo.map((staffName, index) => (
+      <strong
+        className="handover-name"
+        key={`${leave.id}-handover-${index}`}
+      >
+        {staffName}
+      </strong>
+    ))}
+  </div>
+) : (
+  <span className="handover-empty">
+    Not selected
+  </span>
+)}
+    </div>
+
+    <div className="leave-section-actions">
+      <span className="badge">
+        {leave.section}
+      </span>
+
+      <span className="closest-tag">
+        {calculateLeaveDays(leave.start, leave.end)} days
+      </span>
+
+      <button
+        type="button"
+        className="secondary-btn-sm handover-btn"
+        onClick={() => openWorkHandoverModal(leave)}
+      >
+        Work Handover
+      </button>
+    </div>
+  </div>
+))}
 
       {leaveBySectionRecords.length === 0 && (
         <p className="muted leave-section-empty">
@@ -7254,6 +7515,104 @@ Unlock Hukuru 2026
         </div>
 
       {/* NEW: OVERLAP MODAL POPUP */}
+
+{handoverModal && (
+  <div className="confirm-overlay" onClick={closeWorkHandoverModal}>
+    <form
+      className="handover-modal-box"
+      onSubmit={saveWorkHandover}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="confirm-icon">🤝</div>
+
+      <h3>Work Handover</h3>
+
+      <p>
+        Select up to 3 staff members who received work handover from{" "}
+        <strong>{handoverModal.employee}</strong>.
+      </p>
+
+      <div className="handover-slot-list">
+        {[0, 1, 2].map((slotIndex) => {
+          const selectedInOtherSlots = handoverStaffList
+            .filter((_, index) => index !== slotIndex)
+            .map((name) => normalizeNoticeName(name))
+            .filter(Boolean);
+
+          return (
+            <label
+              className="handover-modal-label"
+              key={`handover-slot-${slotIndex}`}
+            >
+              Handover Staff {slotIndex + 1}
+
+              <select
+                value={handoverStaffList[slotIndex] || ""}
+                onChange={(e) =>
+                  updateHandoverStaff(slotIndex, e.target.value)
+                }
+              >
+                <option value="">
+                  {slotIndex === 0
+                    ? "Not selected / Clear handover"
+                    : "Optional"}
+                </option>
+
+                {activeEmployees
+                  .filter((employee) => {
+                    const employeeName = normalizeNoticeName(employee.name);
+                    const leaveOwnerName = normalizeNoticeName(
+                      handoverModal.employee
+                    );
+
+                    return (
+                      employeeName !== leaveOwnerName &&
+                      !selectedInOtherSlots.includes(employeeName)
+                    );
+                  })
+                  .sort((a, b) =>
+                    (a.name || "").localeCompare(b.name || "")
+                  )
+                  .map((employee) => (
+                    <option key={employee.id} value={employee.name}>
+                      {employee.name}
+                      {employee.designation
+                        ? ` — ${employee.designation}`
+                        : ""}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          );
+        })}
+
+        <p className="handover-slot-help">
+          You can select up to 3 staff members. Empty slots will not be shown.
+        </p>
+      </div>
+
+      <div className="confirm-actions">
+        <button
+          type="button"
+          className="confirm-cancel"
+          onClick={closeWorkHandoverModal}
+        >
+          Cancel
+        </button>
+
+        <button
+          type="submit"
+          className="confirm-delete"
+          disabled={isLoading}
+        >
+          {isLoading ? "Saving..." : "Save Handover"}
+        </button>
+      </div>
+    </form>
+  </div>
+)}
+
+
 {statusPinModal && (
   <div className="confirm-overlay" onClick={() => setStatusPinModal(null)}>
     <div className="confirm-box" onClick={(e) => e.stopPropagation()}>
@@ -7293,6 +7652,56 @@ Unlock Hukuru 2026
     </div>
   </div>
 )}
+
+{employeeDeletePinModal && (
+  <div
+    className="confirm-overlay"
+    onClick={() => setEmployeeDeletePinModal(null)}
+  >
+    <div className="confirm-box" onClick={(e) => e.stopPropagation()}>
+      <div className="confirm-icon">🔐</div>
+
+      <h3>Staff Delete Authorization</h3>
+
+      <p>
+        Enter PIN <strong>2391</strong> to continue deleting{" "}
+        <strong>{employeeDeletePinModal.name}</strong>.
+      </p>
+
+      <input
+        type="password"
+        inputMode="numeric"
+        maxLength="4"
+        placeholder="Enter PIN"
+        value={employeeDeletePinInput}
+        onChange={(e) => setEmployeeDeletePinInput(e.target.value)}
+        className="pin-input"
+      />
+
+      <div className="confirm-actions">
+        <button
+          type="button"
+          className="confirm-cancel"
+          onClick={() => {
+            setEmployeeDeletePinModal(null);
+            setEmployeeDeletePinInput("");
+          }}
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          className="confirm-delete"
+          onClick={confirmEmployeeDeleteWithPin}
+        >
+          Verify PIN
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
 {deletePinModal && (
   <div className="confirm-overlay" onClick={() => setDeletePinModal(null)}>
     <div className="confirm-box" onClick={(e) => e.stopPropagation()}>
@@ -7430,6 +7839,113 @@ Unlock Hukuru 2026
     </form>
   </div>
 )}
+
+{bulkSectionModal && (
+  <div
+    className="confirm-overlay"
+    onClick={closeBulkSectionModal}
+  >
+    <form
+      className="bulk-supervisor-box"
+      onSubmit={saveBulkSection}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="confirm-icon">🏷️</div>
+
+      <h3>Bulk Section Change</h3>
+
+      <p>
+        You are changing the section for{" "}
+        <strong>{selectedDirectoryEmployees.length}</strong> selected staff
+        member{selectedDirectoryEmployees.length === 1 ? "" : "s"}.
+      </p>
+
+      <div className="bulk-supervisor-selected-list">
+        {selectedDirectoryEmployees.slice(0, 8).map((employee) => (
+          <span key={employee.id}>
+            {employee.name}
+          </span>
+        ))}
+
+        {selectedDirectoryEmployees.length > 8 && (
+          <span>
+            +{selectedDirectoryEmployees.length - 8} more
+          </span>
+        )}
+      </div>
+
+      <label className="bulk-supervisor-label">
+        Select Existing Section
+
+        <select
+          value={bulkSectionName}
+          onChange={(e) => setBulkSectionName(e.target.value)}
+        >
+          <option value="">Select existing section</option>
+
+          {directorySectionOptions.map((section) => (
+            <option key={section} value={section}>
+              {section}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="bulk-supervisor-label">
+        Or Enter New Section Name
+
+        <input
+          type="text"
+          placeholder="Example: Administration"
+          value={bulkSectionName}
+          onChange={(e) => setBulkSectionName(e.target.value)}
+        />
+      </label>
+
+      <p className="bulk-supervisor-note">
+        If the section name does not already exist, it will be created
+        automatically by assigning it to the selected staff.
+      </p>
+
+      <label className="bulk-supervisor-label">
+        Authorisation PIN
+
+        <input
+          required
+          type="password"
+          inputMode="numeric"
+          maxLength="4"
+          placeholder="Enter Authorization PIN"
+          value={bulkSectionPinInput}
+          onChange={(e) =>
+            setBulkSectionPinInput(e.target.value)
+          }
+        />
+      </label>
+
+      <div className="confirm-actions">
+        <button
+          type="button"
+          className="confirm-cancel"
+          onClick={closeBulkSectionModal}
+        >
+          Cancel
+        </button>
+
+        <button
+          type="submit"
+          className="confirm-delete"
+          disabled={isBulkSectionSaving}
+        >
+          {isBulkSectionSaving
+            ? "Updating..."
+            : "Apply Section Change"}
+        </button>
+      </div>
+    </form>
+  </div>
+)}
+
 
 {employeeEmailPinModal && (
   <div

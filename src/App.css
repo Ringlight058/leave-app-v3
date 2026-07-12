@@ -5887,3 +5887,174 @@ select:disabled {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ======================================
+   WORK HANDOVER COLUMN - LEAVE BY SECTION
+====================================== */
+
+.handover-leave-card {
+  display: grid !important;
+  grid-template-columns: minmax(220px, 1.1fr) minmax(240px, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+}
+
+.handover-column {
+  min-height: 74px;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  padding: 14px 16px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 34%),
+    #f8fbff;
+}
+
+.handover-label {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.handover-name {
+  margin-top: 6px;
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.handover-empty {
+  margin-top: 6px;
+  color: #94a3b8;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.leave-section-actions {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.handover-btn {
+  white-space: nowrap;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+  font-weight: 900;
+}
+
+.handover-btn:hover {
+  border-color: #86efac;
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.handover-modal-box {
+  width: min(440px, calc(100% - 28px));
+  padding: 26px;
+  border: 1px solid #dbeafe;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 34%),
+    #ffffff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+  animation: modalPopIn 0.22s ease-out;
+}
+
+.handover-modal-box h3 {
+  margin: 10px 0 8px;
+  color: #0f172a;
+}
+
+.handover-modal-box p {
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.handover-modal-label {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.handover-modal-label select {
+  height: 46px;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: #ffffff;
+  font-weight: 800;
+}
+
+/* Mobile */
+@media (max-width: 800px) {
+  .handover-leave-card {
+    grid-template-columns: 1fr !important;
+  }
+
+  .handover-column {
+    width: 100%;
+  }
+
+  .leave-section-actions {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .leave-section-actions .badge,
+  .leave-section-actions .closest-tag,
+  .handover-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* ======================================
+   MULTI STAFF WORK HANDOVER
+====================================== */
+
+.handover-name-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.handover-name {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.82rem;
+  font-weight: 900;
+  line-height: 1.2;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
+}
+
+.handover-slot-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.handover-slot-help {
+  margin: 2px 0 0;
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.handover-modal-label {
+  margin-top: 0;
+}
