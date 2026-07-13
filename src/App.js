@@ -100,8 +100,21 @@ function App() {
   const [leaveBySectionSearch, setLeaveBySectionSearch] = useState("");
   const [leaveBySectionFilter, setLeaveBySectionFilter] = useState("");
   const [leaveBySectionSupervisorFilter, setLeaveBySectionSupervisorFilter] = useState("");
+  const [leaveBySectionHandoverFilter, setLeaveBySectionHandoverFilter] = useState("all");
+  const [leaveBySectionDate, setLeaveBySectionDate] = useState(
+  getMaldivesDateString()
+);
   const [handoverModal, setHandoverModal] = useState(null);
   const [handoverStaffList, setHandoverStaffList] = useState(["", "", ""]);
+  const [editLeaveModal, setEditLeaveModal] = useState(null);
+
+  const [editLeaveForm, setEditLeaveForm] = useState({
+  employee: "",
+  start: "",
+  end: "",
+  leaveDays: "",
+  workHandoverTo: ["", "", ""]
+});
   const [showSalaamFRL, setShowSalaamFRL] = useState(false);
   const [staffGroups, setStaffGroups] = useState([]);
   const [groupForm, setGroupForm] = useState({ name: "", members: [] });
@@ -241,6 +254,98 @@ const handleGoogleLogin = async () => {
 const [loginError, setLoginError] = useState("");
 const [loginLoading, setLoginLoading] = useState(false);
 
+const getReportHandoverText = (value) => {
+  const list = normalizeHandoverList(value);
+
+  return list.length > 0 ? list.join(", ") : "—";
+};
+
+const getReportEmployeeInfo = (employeeList, staffName) => {
+  return employeeList.find(
+    (employee) =>
+      normalizeNoticeName(employee.name) === normalizeNoticeName(staffName)
+  );
+};
+
+const getReportReturnToWorkDate = (
+  leaveRecord,
+  leaveList,
+  holidayList
+) => {
+  if (!leaveRecord?.end) return "—";
+
+  const holidaySet = new Set(
+    holidayList.map((holiday) => holiday.date)
+  );
+
+  const staffName = normalizeNoticeName(leaveRecord.employee);
+  const date = new Date(`${leaveRecord.end}T00:00:00`);
+
+  date.setDate(date.getDate() + 1);
+
+  let safetyCounter = 0;
+
+  while (safetyCounter < 5000) {
+    const dateStr = formatLocalDateString(date);
+    const dayOfWeek = date.getDay();
+
+    const isFriday = dayOfWeek === 5;
+    const isSaturday = dayOfWeek === 6;
+    const isHoliday = holidaySet.has(dateStr);
+
+    const anotherLeave = leaveList.find(
+      (leave) =>
+        leave.id !== leaveRecord.id &&
+        normalizeNoticeName(leave.employee) === staffName &&
+        leave.start &&
+        leave.end &&
+        leave.start <= dateStr &&
+        leave.end >= dateStr
+    );
+
+    if (anotherLeave) {
+      date.setTime(new Date(`${anotherLeave.end}T00:00:00`).getTime());
+      date.setDate(date.getDate() + 1);
+      safetyCounter += 1;
+      continue;
+    }
+
+    if (!isFriday && !isSaturday && !isHoliday) {
+      return dateStr;
+    }
+
+    date.setDate(date.getDate() + 1);
+    safetyCounter += 1;
+  }
+
+  return "—";
+};
+
+const buildLeaveReportRows = (
+  leaveList,
+  employeeList,
+  holidayList
+) => {
+  return leaveList.map((leave, index) => {
+    const employee = getReportEmployeeInfo(
+      employeeList,
+      leave.employee
+    );
+
+    return [
+      index + 1,
+      leave.employee || "—",
+      employee?.section || "—",
+      getSupervisorDisplayName(employee) || "—",
+      leave.start || "—",
+      leave.end || "—",
+      getReportReturnToWorkDate(leave, leaveList, holidayList),
+      calculateLeaveDays(leave.start, leave.end),
+      getReportHandoverText(leave.workHandoverTo)
+    ];
+  });
+};
+
 const generateStaffGroupsPDF = async () => {
   const groupSnap = await getDocs(collection(db, "staffGroups"));
   const groups = groupSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -269,33 +374,78 @@ const generateStaffGroupsPDF = async () => {
 
   pdf.save("Staff Groups Report.pdf");
 };
+
 const generateStaffOnLeavePDF = async () => {
   const leaveSnap = await getDocs(collection(db, "leaves"));
   const allLeaves = leaveSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-  const reportData = allLeaves.filter(
-    (l) => l.start <= reportDate && l.end >= reportDate
-  );
+  const employeeSnap = await getDocs(collection(db, "employees"));
+  const allEmployees = employeeSnap.docs.map((d) => ({
+    id: d.id,
+    ...d.data()
+  }));
 
-  if (reportData.length === 0) return alert("No staff on leave for selected date.");
+  const holidaySnap = await getDocs(collection(db, "holidays"));
+  const allHolidays = holidaySnap.docs.map((d) => ({
+    id: d.id,
+    ...d.data()
+  }));
 
-  const pdf = new jsPDF("p", "mm", "a4");
+  const reportData = allLeaves
+    .filter((l) => l.start <= reportDate && l.end >= reportDate)
+    .sort((a, b) =>
+      (a.employee || "").localeCompare(b.employee || "")
+    );
+
+  if (reportData.length === 0) {
+    return alert("No staff on leave for selected date.");
+  }
+
+  const pdf = new jsPDF("l", "mm", "a4");
 
   autoTable(pdf, {
     startY: 72,
-    head: [["#", "Employee", "Start", "End", "Working Days"]],
-    body: reportData.map((l, i) => [
-      i + 1,
-      l.employee || "—",
-      l.start || "—",
-      l.end || "—",
-      calculateLeaveDays(l.start, l.end)
-    ]),
-    styles: { fontSize: 9, cellPadding: 4, textColor: [30, 41, 59] },
-    headStyles: { fillColor: [30, 64, 175], textColor: [255, 255, 255], fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
-    margin: { top: 72, left: 14, right: 14, bottom: 18 },
-    didDrawPage: () => addReportHeaderFooter(pdf, `Staff on Leave Report - ${reportDate}`, reportData.length)
+    head: [[
+      "#",
+      "Employee",
+      "Section",
+      "Supervisor",
+      "Start",
+      "End",
+      "Back to Work",
+      "Days",
+      "Work Handover"
+    ]],
+    body: buildLeaveReportRows(
+      reportData,
+      allEmployees,
+      allHolidays
+    ),
+    styles: {
+      fontSize: 7,
+      cellPadding: 3,
+      textColor: [30, 41, 59]
+    },
+    headStyles: {
+      fillColor: [30, 64, 175],
+      textColor: [255, 255, 255],
+      fontStyle: "bold"
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252]
+    },
+    margin: {
+      top: 72,
+      left: 8,
+      right: 8,
+      bottom: 18
+    },
+    didDrawPage: () =>
+      addReportHeaderFooter(
+        pdf,
+        `Staff on Leave Report - ${reportDate}`,
+        reportData.length
+      )
   });
 
   pdf.save(`Staff on Leave ${reportDate}.pdf`);
@@ -425,51 +575,68 @@ const generateClosestLeavesPDF = async () => {
   const leaveSnap = await getDocs(collection(db, "leaves"));
   const allLeaves = leaveSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-  const today = new Date().toISOString().split("T")[0];
+  const employeeSnap = await getDocs(collection(db, "employees"));
+  const allEmployees = employeeSnap.docs.map((d) => ({
+    id: d.id,
+    ...d.data()
+  }));
+
+  const holidaySnap = await getDocs(collection(db, "holidays"));
+  const allHolidays = holidaySnap.docs.map((d) => ({
+    id: d.id,
+    ...d.data()
+  }));
+
+  const today = getMaldivesDateString();
 
   const reportData = allLeaves
-    .filter((l) => l.start && l.start >= today)
+    .filter((l) => l.start && l.start > today)
     .sort((a, b) => new Date(a.start) - new Date(b.start))
     .slice(0, 20);
 
   if (reportData.length === 0) {
-    return alert("No records found");
+    return alert("No upcoming leave records found.");
   }
 
-  const pdf = new jsPDF("p", "mm", "a4");
+  const pdf = new jsPDF("l", "mm", "a4");
 
   autoTable(pdf, {
     startY: 72,
-    head: [["#", "Employee", "Start", "End", "Working Days"]],
-    body: reportData.map((l, i) => [
-      i + 1,
-      l.employee,
-      l.start,
-      l.end,
-      calculateLeaveDays(l.start, l.end)
-    ]),
-
+    head: [[
+      "#",
+      "Employee",
+      "Section",
+      "Supervisor",
+      "Start",
+      "End",
+      "Back to Work",
+      "Days",
+      "Work Handover"
+    ]],
+    body: buildLeaveReportRows(
+      reportData,
+      allEmployees,
+      allHolidays
+    ),
     styles: {
-      fontSize: 9,
-      cellPadding: 4
+      fontSize: 7,
+      cellPadding: 3,
+      textColor: [30, 41, 59]
     },
-
     headStyles: {
       fillColor: [30, 64, 175],
-      textColor: [255, 255, 255]
+      textColor: [255, 255, 255],
+      fontStyle: "bold"
     },
-
     alternateRowStyles: {
       fillColor: [248, 250, 252]
     },
-
     margin: {
-  top: 72,
-  left: 14,
-  right: 14,
-  bottom: 18
-},
-
+      top: 72,
+      left: 8,
+      right: 8,
+      bottom: 18
+    },
     didDrawPage: () => {
       addReportHeaderFooter(
         pdf,
@@ -482,9 +649,22 @@ const generateClosestLeavesPDF = async () => {
   pdf.save("Closest Leaves Report.pdf");
 };
 
+
 const generateLeaveRecordsPDF = async () => {
   const leaveSnap = await getDocs(collection(db, "leaves"));
   const allLeaves = leaveSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+  const employeeSnap = await getDocs(collection(db, "employees"));
+  const allEmployees = employeeSnap.docs.map((d) => ({
+    id: d.id,
+    ...d.data()
+  }));
+
+  const holidaySnap = await getDocs(collection(db, "holidays"));
+  const allHolidays = holidaySnap.docs.map((d) => ({
+    id: d.id,
+    ...d.data()
+  }));
 
   const reportData = allLeaves
     .filter((l) => l.start)
@@ -495,21 +675,29 @@ const generateLeaveRecordsPDF = async () => {
     return alert("No leave records found.");
   }
 
-  const pdf = new jsPDF("p", "mm", "a4");
+  const pdf = new jsPDF("l", "mm", "a4");
 
   autoTable(pdf, {
     startY: 72,
-    head: [["#", "Employee", "Start", "End", "Working Days"]],
-    body: reportData.map((l, i) => [
-      i + 1,
-      l.employee || "—",
-      l.start || "—",
-      l.end || "—",
-      calculateLeaveDays(l.start, l.end)
-    ]),
+    head: [[
+      "#",
+      "Employee",
+      "Section",
+      "Supervisor",
+      "Start",
+      "End",
+      "Back to Work",
+      "Days",
+      "Work Handover"
+    ]],
+    body: buildLeaveReportRows(
+      reportData,
+      allEmployees,
+      allHolidays
+    ),
     styles: {
-      fontSize: 9,
-      cellPadding: 4,
+      fontSize: 7,
+      cellPadding: 3,
       textColor: [30, 41, 59],
       lineColor: [226, 232, 240],
       lineWidth: 0.2
@@ -523,18 +711,23 @@ const generateLeaveRecordsPDF = async () => {
       fillColor: [248, 250, 252]
     },
     margin: {
-  top: 72,
-  left: 14,
-  right: 14,
-  bottom: 18
-},
+      top: 72,
+      left: 8,
+      right: 8,
+      bottom: 18
+    },
     didDrawPage: () => {
-      addReportHeaderFooter(pdf, "Leave Records Report", reportData.length);
+      addReportHeaderFooter(
+        pdf,
+        "Leave Records Report",
+        reportData.length
+      );
     }
   });
 
   pdf.save("Leave Records Report.pdf");
-}; 
+};
+
 const generateAttendancePDF = async () => {
   const ref = doc(db, "attendance", reportDate);
   const snap = await getDoc(ref);
@@ -719,8 +912,11 @@ const [overviewYaumiyyaRecord, setOverviewYaumiyyaRecord] = useState({
   employee: "",
   start: "",
   end: "",
-  leaveDays: ""
+  leaveDays: "",
+  workHandoverTo: ["", "", ""]
 });
+
+
   const [holidayForm, setHolidayForm] = useState({ name: "", date: "" });
   const [dirFilter, setDirFilter] = useState({ section: "", supervisor: "" });
 
@@ -1260,6 +1456,7 @@ const renderCalendarDays = () => {
 
   // State to hold the data for the pop-up modal
   const [overlapModalData, setOverlapModalData] = useState(null);
+  const [overlapViewFilter, setOverlapViewFilter] = useState("same");
   const [groupModalData, setGroupModalData] = useState(null);
 
   // Math logic to check if two date ranges intersect
@@ -1291,16 +1488,94 @@ const getOverlapRange = (start1, end1, start2, end2) => {
 };
 
   // Function fired when the button is clicked
-  const viewOverlaps = (targetLeave) => {
-    // Filter out the exact leave we clicked on, and find the ones that overlap
-    const overlaps = leaves.filter((l) => 
-      l.id !== targetLeave.id && checkOverlap(targetLeave.start, targetLeave.end, l.start, l.end)
-    );
-    // Trigger the modal to open with the results
-    setOverlapModalData({ target: targetLeave, overlaps });
-  };
+const viewOverlaps = (targetLeave) => {
+  const targetEmployee = employees.find(
+    (employee) =>
+      normalizeNoticeName(employee.name) ===
+      normalizeNoticeName(targetLeave.employee)
+  );
 
-  const closeOverlapModal = () => setOverlapModalData(null);
+  const targetSection =
+    targetEmployee?.section || "Unassigned Section";
+
+  const overlaps = leaves
+    .filter(
+      (leave) =>
+        leave.id !== targetLeave.id &&
+        leave.start &&
+        leave.end &&
+        checkOverlap(
+          targetLeave.start,
+          targetLeave.end,
+          leave.start,
+          leave.end
+        )
+    )
+    .map((leave) => {
+      const employee = employees.find(
+        (item) =>
+          normalizeNoticeName(item.name) ===
+          normalizeNoticeName(leave.employee)
+      );
+
+      const section =
+        employee?.section || "Unassigned Section";
+
+      const overlapInfo = getOverlapRange(
+        targetLeave.start,
+        targetLeave.end,
+        leave.start,
+        leave.end
+      );
+
+      return {
+        ...leave,
+        section,
+        designation: employee?.designation || "",
+        supervisor: employee
+          ? getSupervisorDisplayName(employee) || "—"
+          : "—",
+        isSameSection:
+          normalizeNoticeName(section) ===
+          normalizeNoticeName(targetSection),
+        overlapInfo
+      };
+    })
+    .sort((a, b) => {
+      if (a.isSameSection !== b.isSameSection) {
+        return a.isSameSection ? -1 : 1;
+      }
+
+      return new Date(a.start) - new Date(b.start);
+    });
+
+  const sameSectionOverlaps = overlaps.filter(
+  (leave) => leave.isSameSection
+);
+
+const otherSectionOverlaps = overlaps.filter(
+  (leave) => !leave.isSameSection
+);
+
+setOverlapModalData({
+  target: targetLeave,
+  targetEmployee,
+  targetSection,
+  overlaps,
+  sameSectionOverlaps,
+  otherSectionOverlaps
+});
+
+setOverlapViewFilter(
+  sameSectionOverlaps.length > 0 ? "same" : "all"
+);
+};
+
+
+  const closeOverlapModal = () => {
+  setOverlapModalData(null);
+  setOverlapViewFilter("same");
+};
 
   const openGroupModal = (group) => {
   setGroupModalData(group);
@@ -2148,6 +2423,54 @@ const confirmEmployeeStatusWithPin = () => {
   });
 };
 
+const getSelectedHandoverStaff = (handoverList = []) => {
+  return handoverList
+    .map((name) => (name || "").trim())
+    .filter(Boolean)
+    .slice(0, 3);
+};
+
+const getStaffLeaveOverlaps = (
+  staffName,
+  startDate,
+  endDate,
+  excludeLeaveId = ""
+) => {
+  if (!staffName || !startDate || !endDate) return [];
+
+  return leaves.filter(
+    (leave) =>
+      leave.id !== excludeLeaveId &&
+      normalizeNoticeName(leave.employee) === normalizeNoticeName(staffName) &&
+      leave.start &&
+      leave.end &&
+      checkOverlap(startDate, endDate, leave.start, leave.end)
+  );
+};
+
+const updateLeaveFormHandover = (index, value) => {
+  setLeaveForm((previous) => {
+    const nextHandover = [...previous.workHandoverTo];
+    nextHandover[index] = value;
+
+    return {
+      ...previous,
+      workHandoverTo: nextHandover
+    };
+  });
+};
+
+const updateEditLeaveFormHandover = (index, value) => {
+  setEditLeaveForm((previous) => {
+    const nextHandover = [...previous.workHandoverTo];
+    nextHandover[index] = value;
+
+    return {
+      ...previous,
+      workHandoverTo: nextHandover
+    };
+  });
+};
 
 const removeEmployee = (employeeOrId) => {
   const employee =
@@ -2205,7 +2528,7 @@ const confirmEmployeeDeleteWithPin = () => {
 };
 
 
-  const saveLeave = async (e) => {
+const saveLeave = async (e) => {
   e.preventDefault();
 
   if (!leaveForm.employee || !leaveForm.start || !leaveForm.end) {
@@ -2216,6 +2539,27 @@ const confirmEmployeeDeleteWithPin = () => {
 
   if (leaveForm.end < leaveForm.start) {
     return alert("End date cannot be before start date.");
+  }
+
+  const selectedHandoverStaff = getSelectedHandoverStaff(
+    leaveForm.workHandoverTo
+  );
+
+  const uniqueHandoverStaff = new Set(
+    selectedHandoverStaff.map((name) => normalizeNoticeName(name))
+  );
+
+  if (uniqueHandoverStaff.size !== selectedHandoverStaff.length) {
+    return alert("Please select different staff members for each handover slot.");
+  }
+
+  if (
+    selectedHandoverStaff.some(
+      (name) =>
+        normalizeNoticeName(name) === normalizeNoticeName(leaveForm.employee)
+    )
+  ) {
+    return alert("A staff member cannot hand over work to themselves.");
   }
 
   const breakdown = getLeaveBreakdown(
@@ -2229,6 +2573,20 @@ const confirmEmployeeDeleteWithPin = () => {
     );
   }
 
+  const overlaps = getStaffLeaveOverlaps(
+    leaveForm.employee,
+    leaveForm.start,
+    leaveForm.end
+  );
+
+  if (overlaps.length > 0) {
+    const continueSave = window.confirm(
+      `${leaveForm.employee} already has ${overlaps.length} overlapping leave record(s). Do you still want to save this leave?`
+    );
+
+    if (!continueSave) return;
+  }
+
   setIsLoading(true);
 
   try {
@@ -2237,7 +2595,8 @@ const confirmEmployeeDeleteWithPin = () => {
       start: leaveForm.start,
       end: leaveForm.end,
       totalCalendarDays: breakdown.totalCalendarDays,
-      leaveDays: breakdown.leaveDays
+      leaveDays: breakdown.leaveDays,
+      workHandoverTo: selectedHandoverStaff
     };
 
     const docRef = await addDoc(collection(db, "leaves"), payload);
@@ -2251,13 +2610,166 @@ const confirmEmployeeDeleteWithPin = () => {
       employee: "",
       start: "",
       end: "",
-      leaveDays: ""
+      leaveDays: "",
+      workHandoverTo: ["", "", ""]
     });
 
     showToast("Leave record added successfully.");
   } catch (error) {
     console.error("Error saving leave:", error);
     alert(`Could not save leave: ${error.message}`);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+const openEditLeaveModal = (leave) => {
+  const savedHandover = normalizeHandoverList(leave.workHandoverTo);
+
+  setEditLeaveModal(leave);
+
+  setEditLeaveForm({
+    employee: leave.employee || "",
+    start: leave.start || "",
+    end: leave.end || "",
+    leaveDays: "",
+    workHandoverTo: [
+      savedHandover[0] || "",
+      savedHandover[1] || "",
+      savedHandover[2] || ""
+    ]
+  });
+};
+
+const closeEditLeaveModal = () => {
+  setEditLeaveModal(null);
+
+  setEditLeaveForm({
+    employee: "",
+    start: "",
+    end: "",
+    leaveDays: "",
+    workHandoverTo: ["", "", ""]
+  });
+};
+
+const handleEditLeaveStartChange = (start) => {
+  setEditLeaveForm((previous) => ({
+    ...previous,
+    start,
+    end: previous.leaveDays
+      ? getLeaveEndFromWorkingDays(start, previous.leaveDays)
+      : previous.end
+  }));
+};
+
+const handleEditLeaveEndChange = (end) => {
+  setEditLeaveForm((previous) => ({
+    ...previous,
+    end,
+    leaveDays: ""
+  }));
+};
+
+const handleEditLeaveDaysChange = (leaveDays) => {
+  setEditLeaveForm((previous) => ({
+    ...previous,
+    leaveDays,
+    end: getLeaveEndFromWorkingDays(previous.start, leaveDays)
+  }));
+};
+
+const saveEditedLeave = async (e) => {
+  e.preventDefault();
+
+  if (!editLeaveModal?.id) return;
+
+  if (!editLeaveForm.employee || !editLeaveForm.start || !editLeaveForm.end) {
+    return alert("Please select staff, start date and end date.");
+  }
+
+  if (editLeaveForm.end < editLeaveForm.start) {
+    return alert("End date cannot be before start date.");
+  }
+
+  const selectedHandoverStaff = getSelectedHandoverStaff(
+    editLeaveForm.workHandoverTo
+  );
+
+  const uniqueHandoverStaff = new Set(
+    selectedHandoverStaff.map((name) => normalizeNoticeName(name))
+  );
+
+  if (uniqueHandoverStaff.size !== selectedHandoverStaff.length) {
+    return alert("Please select different staff members for each handover slot.");
+  }
+
+  if (
+    selectedHandoverStaff.some(
+      (name) =>
+        normalizeNoticeName(name) === normalizeNoticeName(editLeaveForm.employee)
+    )
+  ) {
+    return alert("A staff member cannot hand over work to themselves.");
+  }
+
+  const breakdown = getLeaveBreakdown(
+    editLeaveForm.start,
+    editLeaveForm.end
+  );
+
+  if (breakdown.leaveDays < 1) {
+    return alert(
+      "This leave period has no working leave days. Please check the selected dates."
+    );
+  }
+
+  const overlaps = getStaffLeaveOverlaps(
+    editLeaveForm.employee,
+    editLeaveForm.start,
+    editLeaveForm.end,
+    editLeaveModal.id
+  );
+
+  if (overlaps.length > 0) {
+    const continueSave = window.confirm(
+      `${editLeaveForm.employee} already has ${overlaps.length} overlapping leave record(s). Do you still want to update this leave?`
+    );
+
+    if (!continueSave) return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    const payload = {
+      employee: editLeaveForm.employee,
+      start: editLeaveForm.start,
+      end: editLeaveForm.end,
+      totalCalendarDays: breakdown.totalCalendarDays,
+      leaveDays: breakdown.leaveDays,
+      workHandoverTo: selectedHandoverStaff
+    };
+
+    await setDoc(
+      doc(db, "leaves", editLeaveModal.id),
+      payload,
+      { merge: true }
+    );
+
+    setLeaves((previous) =>
+      previous.map((leave) =>
+        leave.id === editLeaveModal.id
+          ? { ...leave, ...payload }
+          : leave
+      )
+    );
+
+    closeEditLeaveModal();
+    showToast("Leave record updated successfully.");
+  } catch (error) {
+    console.error("Could not update leave:", error);
+    showToast("Could not update leave record.", "error");
   } finally {
     setIsLoading(false);
   }
@@ -3039,6 +3551,9 @@ const normalizeHandoverList = (value) => {
   return [];
 };
 
+const selectedLeaveBySectionDate =
+  leaveBySectionDate || getMaldivesDateString();
+
 const leaveBySectionRecords = [...leaves]
   .map((leave) => {
     const employee = leaveBySectionEmployeeMap.get(
@@ -3046,23 +3561,20 @@ const leaveBySectionRecords = [...leaves]
     );
 
     return {
-  ...leave,
-  employeeInfo: employee || null,
-  section: employee?.section || "Unassigned Section",
-  designation: employee?.designation || "",
-  supervisor: employee
-    ? getSupervisorDisplayName(employee) || "No Supervisor"
-    : "No Supervisor",
-  handoverTo: normalizeHandoverList(leave.workHandoverTo)
-};
-
+      ...leave,
+      employeeInfo: employee || null,
+      section: employee?.section || "Unassigned Section",
+      designation: employee?.designation || "",
+      supervisor: employee
+        ? getSupervisorDisplayName(employee) || "No Supervisor"
+        : "No Supervisor",
+      handoverTo: normalizeHandoverList(leave.workHandoverTo)
+    };
   })
   .filter((leave) => {
-    const today = getMaldivesDateString();
-
-    const isUpcomingLeave =
+    const isUpcomingFromSelectedDate =
       leave.start &&
-      leave.start > today;
+      leave.start > selectedLeaveBySectionDate;
 
     const isActiveStaff = Boolean(leave.employeeInfo);
 
@@ -3076,18 +3588,25 @@ const leaveBySectionRecords = [...leaves]
         .toLowerCase()
         .includes(leaveBySectionSearch.toLowerCase());
 
-const matchesSupervisor =
-  !leaveBySectionSupervisorFilter ||
-  leave.supervisor === leaveBySectionSupervisorFilter;
+    const matchesSupervisor =
+      !leaveBySectionSupervisorFilter ||
+      leave.supervisor === leaveBySectionSupervisorFilter;
+
+const matchesHandover =
+  leaveBySectionHandoverFilter === "all" ||
+  (leaveBySectionHandoverFilter === "done" &&
+    leave.handoverTo.length > 0) ||
+  (leaveBySectionHandoverFilter === "missing" &&
+    leave.handoverTo.length === 0);
 
     return (
-  isUpcomingLeave &&
+  isUpcomingFromSelectedDate &&
   isActiveStaff &&
   matchesSection &&
   matchesSupervisor &&
+  matchesHandover &&
   matchesStaffSearch
 );
-
   })
   .sort((a, b) => new Date(a.start) - new Date(b.start))
   .slice(0, 40);
@@ -3194,8 +3713,10 @@ useEffect(() => {
   });
 }, [
   activeTab,
+  leaveBySectionDate,
   leaveBySectionFilter,
   leaveBySectionSupervisorFilter,
+  leaveBySectionHandoverFilter,
   leaveBySectionSearch,
   leaveBySectionRecords.length
 ]);
@@ -3796,31 +4317,83 @@ const isStaffOnLeaveToday = (staffName) => {
 };
 
 const openEmployeeProfile = (emp) => {
+  const cleanEmployeeName = normalizeNoticeName(emp.name);
   const todayInfo = getPresenceInfo(emp.name);
 
   const currentLeave = leaves.find(
     (l) =>
-      l.employee === emp.name &&
+      normalizeNoticeName(l.employee) === cleanEmployeeName &&
       l.start <= attendanceDate &&
       l.end >= attendanceDate
   );
 
-  const upcomingLeave = [...leaves]
-    .filter((l) => l.employee === emp.name && l.start > attendanceDate)
-    .sort((a, b) => new Date(a.start) - new Date(b.start))[0];
+  const upcomingLeaves = [...leaves]
+    .filter(
+      (l) =>
+        normalizeNoticeName(l.employee) === cleanEmployeeName &&
+        l.start > attendanceDate
+    )
+    .sort((a, b) => new Date(a.start) - new Date(b.start))
+    .slice(0, 5);
+
+  const recentLeaves = [...leaves]
+    .filter(
+      (l) =>
+        normalizeNoticeName(l.employee) === cleanEmployeeName &&
+        l.end < attendanceDate
+    )
+    .sort((a, b) => new Date(b.end) - new Date(a.end))
+    .slice(0, 5);
+
+  const handoverGiven = [...leaves]
+    .filter(
+      (l) =>
+        normalizeNoticeName(l.employee) === cleanEmployeeName &&
+        normalizeHandoverList(l.workHandoverTo).length > 0
+    )
+    .sort((a, b) => new Date(b.start) - new Date(a.start))
+    .slice(0, 5);
+
+  const handoverReceived = [...leaves]
+    .filter((l) =>
+      normalizeHandoverList(l.workHandoverTo).some(
+        (name) => normalizeNoticeName(name) === cleanEmployeeName
+      )
+    )
+    .sort((a, b) => new Date(b.start) - new Date(a.start))
+    .slice(0, 5);
+
+  const groupNames = staffGroups
+    .filter((group) =>
+      (group.members || []).some(
+        (memberName) =>
+          normalizeNoticeName(memberName) === cleanEmployeeName
+      )
+    )
+    .map((group) => group.name);
 
   const attendance = attendanceRecord[emp.name] || {};
 
   setEmployeeProfile({
     ...emp,
+    supervisor: getSupervisorDisplayName(emp),
     todayStatus: todayInfo.status,
     todayDetail: todayInfo.detail,
     statusClass: todayInfo.className,
     currentLeave,
-    upcomingLeave,
+    currentReturnToWork: currentLeave
+      ? getReturnToWorkDate(currentLeave)
+      : "",
+    upcomingLeave: upcomingLeaves[0] || null,
+    upcomingLeaves,
+    recentLeaves,
+    handoverGiven,
+    handoverReceived,
+    groupNames,
     attendance
   });
 };
+
 const getEmployeeDisplayName = (staffName) => {
   const emp = employees.find((e) => e.name === staffName);
 
@@ -4404,7 +4977,7 @@ return (
         <div className="reports-grid">
           <section className="report-card">
             <h3>Leave Records</h3>
-            <p>Export latest 20 leave records with employee, duration and working days.</p>
+            <p>Export latest 20 leave records with section, supervisor, back-to-work date and work handover.</p>
             <button className="primary-btn-sm" onClick={generateLeaveRecordsPDF}>
               Export PDF
             </button>
@@ -4412,7 +4985,7 @@ return (
 
           <section className="report-card">
             <h3>Closest 20 Leaves</h3>
-            <p>Export upcoming 20 leaves sorted by nearest start date.</p>
+            <p>Export upcoming 20 leaves with section, supervisor, return date and work handover.</p>
             <button className="primary-btn-sm" onClick={generateClosestLeavesPDF}>
               Export PDF
             </button>
@@ -4428,7 +5001,7 @@ return (
 
           <section className="report-card">
             <h3>Staff on Leave</h3>
-            <p>Export staff on leave for the selected date.</p>
+            <p>Export staff on leave for the selected date with section, supervisor and handover details.</p>
             <button className="primary-btn-sm" onClick={generateStaffOnLeavePDF}>
               Export PDF
             </button>
@@ -5722,6 +6295,70 @@ return (
       </p>
     </div>
 
+<div className="leave-entry-summary handover-create-box">
+  <div className="leave-summary-row">
+    <span>Work Handover</span>
+    <strong>Optional</strong>
+  </div>
+
+  <p>
+    Select up to 3 staff members who will receive work handover before leave.
+  </p>
+
+  <div className="handover-slot-list">
+    {[0, 1, 2].map((slotIndex) => {
+      const selectedInOtherSlots = leaveForm.workHandoverTo
+        .filter((_, index) => index !== slotIndex)
+        .map((name) => normalizeNoticeName(name))
+        .filter(Boolean);
+
+      return (
+        <label
+          className="handover-modal-label"
+          key={`leave-form-handover-${slotIndex}`}
+        >
+          Handover Staff {slotIndex + 1}
+
+          <select
+            value={leaveForm.workHandoverTo[slotIndex] || ""}
+            onChange={(e) =>
+              updateLeaveFormHandover(slotIndex, e.target.value)
+            }
+          >
+            <option value="">
+              {slotIndex === 0 ? "Not selected" : "Optional"}
+            </option>
+
+            {activeEmployees
+              .filter((employee) => {
+                const employeeName = normalizeNoticeName(employee.name);
+                const leaveOwnerName = normalizeNoticeName(
+                  leaveForm.employee
+                );
+
+                return (
+                  employeeName !== leaveOwnerName &&
+                  !selectedInOtherSlots.includes(employeeName)
+                );
+              })
+              .sort((a, b) =>
+                (a.name || "").localeCompare(b.name || "")
+              )
+              .map((employee) => (
+                <option key={employee.id} value={employee.name}>
+                  {employee.name}
+                  {employee.designation
+                    ? ` — ${employee.designation}`
+                    : ""}
+                </option>
+              ))}
+          </select>
+        </label>
+      );
+    })}
+  </div>
+</div>
+
     <button
       type="submit"
       className="primary-btn leave-save-btn"
@@ -5768,7 +6405,7 @@ return (
 
 {/* DIRECTORY TAB */}
 {activeTab === "directory" && (
-  <div className="panel full-width">
+  <div className="panel full-width leave-records-page">
 
     <div className="table-header">
   <h2>Staff Directory</h2>
@@ -6218,60 +6855,85 @@ return (
       <div>
         <h2>Leave by Section</h2>
         <p className="muted">
-          Shows the closest 40 upcoming leave records with section filter and
-          staff name search.
-        </p>
+  Showing up to 40 leave records from the selected date point,
+  with section, supervisor and staff name filters.
+</p>
       </div>
 
       <div className="filter-group">
-        <select
-  value={leaveBySectionFilter}
-  onChange={(e) => setLeaveBySectionFilter(e.target.value)}
->
-  <option value="">All Sections</option>
+  <input
+    type="date"
+    value={leaveBySectionDate}
+    onChange={(e) => setLeaveBySectionDate(e.target.value)}
+  />
 
-  {leaveBySectionOptions.map((section) => (
-    <option key={section} value={section}>
-      {section}
-    </option>
-  ))}
-</select>
+  <button
+    type="button"
+    className="secondary-btn-sm"
+    onClick={() => setLeaveBySectionDate(getMaldivesDateString())}
+  >
+    Today
+  </button>
+
+  <select
+    value={leaveBySectionFilter}
+    onChange={(e) => setLeaveBySectionFilter(e.target.value)}
+  >
+    <option value="">All Sections</option>
+
+    {leaveBySectionOptions.map((section) => (
+      <option key={section} value={section}>
+        {section}
+      </option>
+    ))}
+  </select>
+
+  <select
+    value={leaveBySectionSupervisorFilter}
+    onChange={(e) =>
+      setLeaveBySectionSupervisorFilter(e.target.value)
+    }
+  >
+    <option value="">All Supervisors</option>
+
+    {leaveBySectionSupervisorOptions.map((supervisor) => (
+      <option key={supervisor} value={supervisor}>
+        {supervisor}
+      </option>
+    ))}
+  </select>
 
 <select
-  value={leaveBySectionSupervisorFilter}
+  value={leaveBySectionHandoverFilter}
   onChange={(e) =>
-    setLeaveBySectionSupervisorFilter(e.target.value)
+    setLeaveBySectionHandoverFilter(e.target.value)
   }
 >
-  <option value="">All Supervisors</option>
-
-  {leaveBySectionSupervisorOptions.map((supervisor) => (
-    <option key={supervisor} value={supervisor}>
-      {supervisor}
-    </option>
-  ))}
+  <option value="all">All Handovers</option>
+  <option value="done">Handover Done</option>
+  <option value="missing">Handover Missing</option>
 </select>
 
-<input
-  type="text"
-  placeholder="Search staff name..."
-  value={leaveBySectionSearch}
-  onChange={(e) => setLeaveBySectionSearch(e.target.value)}
-/>
+  <input
+    type="text"
+    placeholder="Search staff name..."
+    value={leaveBySectionSearch}
+    onChange={(e) => setLeaveBySectionSearch(e.target.value)}
+  />
 
-        <button className="refresh-btn" onClick={refreshData}>
-          Refresh
-        </button>
-      </div>
+  <button className="refresh-btn" onClick={refreshData}>
+    Refresh
+  </button>
+</div>
     </div>
 
     <div className="closest-item leave-section-summary">
       <div>
-        <strong>Closest upcoming leave records</strong>
+        <strong>Upcoming leave records from selected date</strong>
         <div className="muted">
           {leaveBySectionFilter
-            ? `Filtered by section: ${leaveBySectionFilter}`
-            : "Showing all sections"}
+  ? `Filtered by section: ${leaveBySectionFilter} • From ${selectedLeaveBySectionDate}`
+  : `Showing all sections • From ${selectedLeaveBySectionDate}`}
         </div>
       </div>
 
@@ -6331,6 +6993,8 @@ return (
         {calculateLeaveDays(leave.start, leave.end)} days
       </span>
 
+
+
       <button
         type="button"
         className="secondary-btn-sm handover-btn"
@@ -6344,7 +7008,7 @@ return (
 
       {leaveBySectionRecords.length === 0 && (
         <p className="muted leave-section-empty">
-          No upcoming leave records found for this filter.
+          No upcoming leave records found after the selected date.
         </p>
       )}
     </div>
@@ -7445,7 +8109,7 @@ Unlock Hukuru 2026
 )}
           {/* RECORDS TAB */}
           {activeTab === "records" && (
-            <div className="panel full-width">
+            <div className="panel full-width leave-records-page records-mobile-page">
 <div className="table-header">
   <h2>Leave History</h2>
 
@@ -7489,6 +8153,14 @@ Unlock Hukuru 2026
       >
         Check Overlaps
       </button>
+
+<button
+  className="secondary-btn-sm mr-2"
+  onClick={() => openEditLeaveModal(l)}
+>
+  Edit
+</button>
+
       <button
         className="text-danger"
         style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
@@ -7515,6 +8187,190 @@ Unlock Hukuru 2026
         </div>
 
       {/* NEW: OVERLAP MODAL POPUP */}
+
+{editLeaveModal && (
+  <div className="confirm-overlay" onClick={closeEditLeaveModal}>
+    <form
+      className="handover-modal-box edit-leave-modal-box"
+      onSubmit={saveEditedLeave}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="confirm-icon">✏️</div>
+
+      <h3>Edit Leave Record</h3>
+
+      <p>
+        Update leave details and work handover for{" "}
+        <strong>{editLeaveModal.employee}</strong>.
+      </p>
+
+      <label className="handover-modal-label">
+        Staff Member
+
+        <select
+          required
+          value={editLeaveForm.employee}
+          onChange={(e) =>
+            setEditLeaveForm({
+              ...editLeaveForm,
+              employee: e.target.value
+            })
+          }
+        >
+          <option value="">Select staff</option>
+
+          {activeEmployees.map((employee) => (
+            <option key={employee.id} value={employee.name}>
+              {employee.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className="leave-date-grid">
+        <label className="handover-modal-label">
+          Leave Start Date
+
+          <input
+            required
+            type="date"
+            value={editLeaveForm.start}
+            onChange={(e) =>
+              handleEditLeaveStartChange(e.target.value)
+            }
+          />
+        </label>
+
+        <label className="handover-modal-label">
+          Leave End Date
+
+          <input
+            required
+            type="date"
+            value={editLeaveForm.end}
+            onChange={(e) =>
+              handleEditLeaveEndChange(e.target.value)
+            }
+          />
+        </label>
+      </div>
+
+      <label className="handover-modal-label">
+        Or Number of Leave Days
+
+        <input
+          type="number"
+          min="1"
+          step="1"
+          placeholder="Example: 5"
+          value={editLeaveForm.leaveDays}
+          onChange={(e) =>
+            handleEditLeaveDaysChange(e.target.value)
+          }
+        />
+      </label>
+
+      <div className="leave-entry-summary">
+        <div className="leave-summary-row">
+          <span>Total Calendar Days</span>
+          <strong>
+            {editLeaveForm.start && editLeaveForm.end
+              ? `${getLeaveBreakdown(
+                  editLeaveForm.start,
+                  editLeaveForm.end
+                ).totalCalendarDays} days`
+              : "—"}
+          </strong>
+        </div>
+
+        <div className="leave-summary-row highlight">
+          <span>Number of Leave Days</span>
+          <strong>
+            {editLeaveForm.start && editLeaveForm.end
+              ? `${getLeaveBreakdown(
+                  editLeaveForm.start,
+                  editLeaveForm.end
+                ).leaveDays} days`
+              : "—"}
+          </strong>
+        </div>
+      </div>
+
+      <div className="handover-slot-list">
+        {[0, 1, 2].map((slotIndex) => {
+          const selectedInOtherSlots = editLeaveForm.workHandoverTo
+            .filter((_, index) => index !== slotIndex)
+            .map((name) => normalizeNoticeName(name))
+            .filter(Boolean);
+
+          return (
+            <label
+              className="handover-modal-label"
+              key={`edit-handover-${slotIndex}`}
+            >
+              Handover Staff {slotIndex + 1}
+
+              <select
+                value={editLeaveForm.workHandoverTo[slotIndex] || ""}
+                onChange={(e) =>
+                  updateEditLeaveFormHandover(slotIndex, e.target.value)
+                }
+              >
+                <option value="">
+                  {slotIndex === 0
+                    ? "Not selected / Clear handover"
+                    : "Optional"}
+                </option>
+
+                {activeEmployees
+                  .filter((employee) => {
+                    const employeeName = normalizeNoticeName(employee.name);
+                    const leaveOwnerName = normalizeNoticeName(
+                      editLeaveForm.employee
+                    );
+
+                    return (
+                      employeeName !== leaveOwnerName &&
+                      !selectedInOtherSlots.includes(employeeName)
+                    );
+                  })
+                  .sort((a, b) =>
+                    (a.name || "").localeCompare(b.name || "")
+                  )
+                  .map((employee) => (
+                    <option key={employee.id} value={employee.name}>
+                      {employee.name}
+                      {employee.designation
+                        ? ` — ${employee.designation}`
+                        : ""}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          );
+        })}
+      </div>
+
+      <div className="confirm-actions">
+        <button
+          type="button"
+          className="confirm-cancel"
+          onClick={closeEditLeaveModal}
+        >
+          Cancel
+        </button>
+
+        <button
+          type="submit"
+          className="confirm-delete"
+          disabled={isLoading}
+        >
+          {isLoading ? "Updating..." : "Update Leave"}
+        </button>
+      </div>
+    </form>
+  </div>
+)}
 
 {handoverModal && (
   <div className="confirm-overlay" onClick={closeWorkHandoverModal}>
@@ -8061,15 +8917,23 @@ Unlock Hukuru 2026
     </form>
   </div>
 )}
+
 {employeeProfile && (
-  <div className="presence-popup-overlay" onClick={() => setEmployeeProfile(null)}>
-    <div className="employee-profile-box" onClick={(e) => e.stopPropagation()}>
-      <div className="employee-profile-header">
+  <div
+    className="presence-popup-overlay"
+    onClick={() => setEmployeeProfile(null)}
+  >
+    <div
+      className="employee-profile-box upgraded-profile-box"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="employee-profile-header upgraded-profile-header">
         <div className={`employee-avatar ${employeeProfile.statusClass}`}>
           {employeeProfile.name?.charAt(0)}
         </div>
 
         <div>
+          <span className="profile-kicker">STAFF PROFILE</span>
           <h3>{employeeProfile.name}</h3>
           <p>{employeeProfile.designation || "No designation"}</p>
         </div>
@@ -8088,7 +8952,11 @@ Unlock Hukuru 2026
 
         <div>
           <span>Staff Status</span>
-          <strong>{employeeProfile.status === "inactive" ? "Inactive" : "Active"}</strong>
+          <strong>
+            {employeeProfile.status === "inactive"
+              ? "Inactive"
+              : "Active"}
+          </strong>
         </div>
 
         <div>
@@ -8097,17 +8965,27 @@ Unlock Hukuru 2026
         </div>
       </div>
 
-      <div className="profile-detail-card">
+      <div className="profile-detail-card profile-highlight-card">
         <span>Today Detail</span>
         <strong>{employeeProfile.todayDetail}</strong>
       </div>
 
-      <div className="profile-detail-card">
-        <span>Attendance</span>
-        <strong>
-          Check-in: {employeeProfile.attendance?.checkIn || "—"} | Check-out:{" "}
-          {employeeProfile.attendance?.checkOut || "—"}
-        </strong>
+      <div className="profile-mini-grid">
+        <div className="profile-detail-card">
+          <span>Attendance</span>
+          <strong>
+            Check-in: {employeeProfile.attendance?.checkIn || "—"}
+            {" "} | Check-out:{" "}
+            {employeeProfile.attendance?.checkOut || "—"}
+          </strong>
+        </div>
+
+        <div className="profile-detail-card">
+          <span>Return to Work</span>
+          <strong>
+            {employeeProfile.currentReturnToWork || "—"}
+          </strong>
+        </div>
       </div>
 
       <div className="profile-detail-card">
@@ -8119,21 +8997,109 @@ Unlock Hukuru 2026
         </strong>
       </div>
 
-      <div className="profile-detail-card">
-        <span>Next Upcoming Leave</span>
-        <strong>
-          {employeeProfile.upcomingLeave
-            ? `${employeeProfile.upcomingLeave.start} to ${employeeProfile.upcomingLeave.end}`
-            : "No upcoming leave"}
-        </strong>
+      <div className="profile-section-block">
+        <div className="profile-section-title">
+          <strong>Upcoming Leaves</strong>
+          <span>{employeeProfile.upcomingLeaves?.length || 0}</span>
+        </div>
+
+        {employeeProfile.upcomingLeaves?.length > 0 ? (
+          employeeProfile.upcomingLeaves.map((leave) => (
+            <div className="profile-list-row" key={leave.id}>
+              <span>{leave.start} to {leave.end}</span>
+              <strong>{calculateLeaveDays(leave.start, leave.end)} days</strong>
+            </div>
+          ))
+        ) : (
+          <p className="muted">No upcoming leave.</p>
+        )}
       </div>
 
-      <button className="primary-btn" onClick={() => setEmployeeProfile(null)}>
+      <div className="profile-section-block">
+        <div className="profile-section-title">
+          <strong>Recent Leave History</strong>
+          <span>{employeeProfile.recentLeaves?.length || 0}</span>
+        </div>
+
+        {employeeProfile.recentLeaves?.length > 0 ? (
+          employeeProfile.recentLeaves.map((leave) => (
+            <div className="profile-list-row" key={leave.id}>
+              <span>{leave.start} to {leave.end}</span>
+              <strong>{calculateLeaveDays(leave.start, leave.end)} days</strong>
+            </div>
+          ))
+        ) : (
+          <p className="muted">No recent leave history.</p>
+        )}
+      </div>
+
+      <div className="profile-section-block">
+        <div className="profile-section-title">
+          <strong>Staff Groups</strong>
+          <span>{employeeProfile.groupNames?.length || 0}</span>
+        </div>
+
+        {employeeProfile.groupNames?.length > 0 ? (
+          <div className="profile-chip-list">
+            {employeeProfile.groupNames.map((groupName) => (
+              <span key={groupName}>{groupName}</span>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">Not assigned to any group.</p>
+        )}
+      </div>
+
+      <div className="profile-section-block">
+        <div className="profile-section-title">
+          <strong>Work Handover Given</strong>
+          <span>{employeeProfile.handoverGiven?.length || 0}</span>
+        </div>
+
+        {employeeProfile.handoverGiven?.length > 0 ? (
+          employeeProfile.handoverGiven.map((leave) => (
+            <div className="profile-list-row" key={leave.id}>
+              <span>{leave.start} to {leave.end}</span>
+              <strong>{getReportHandoverText(leave.workHandoverTo)}</strong>
+            </div>
+          ))
+        ) : (
+          <p className="muted">No handover given records.</p>
+        )}
+      </div>
+
+      <div className="profile-section-block">
+        <div className="profile-section-title">
+          <strong>Work Handover Received</strong>
+          <span>{employeeProfile.handoverReceived?.length || 0}</span>
+        </div>
+
+        {employeeProfile.handoverReceived?.length > 0 ? (
+          employeeProfile.handoverReceived.map((leave) => (
+            <div className="profile-list-row" key={leave.id}>
+              <span>
+                From <strong>{leave.employee}</strong> • {leave.start} to{" "}
+                {leave.end}
+              </span>
+              <strong>{calculateLeaveDays(leave.start, leave.end)} days</strong>
+            </div>
+          ))
+        ) : (
+          <p className="muted">No handover received records.</p>
+        )}
+      </div>
+
+      <button
+        className="primary-btn"
+        onClick={() => setEmployeeProfile(null)}
+      >
         Close
       </button>
     </div>
   </div>
 )}
+
+
 {presencePopup && (
   <div className="presence-popup-overlay" onClick={() => setPresencePopup(null)}>
     <div className="presence-popup-box" onClick={(e) => e.stopPropagation()}>
@@ -8182,54 +9148,195 @@ Unlock Hukuru 2026
   </div>
 )}
       {overlapModalData && (
-        <div className="modal-overlay" onClick={closeOverlapModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Overlapping Leaves</h3>
-              <button className="close-btn" onClick={closeOverlapModal}>&times;</button>
-            </div>
-            <div className="modal-body">
-              <p>Checking conflicts for <strong>{overlapModalData.target.employee}</strong> <br/>
-                <span className="muted">({overlapModalData.target.start} to {overlapModalData.target.end})</span>
-              </p>
+  <div className="modal-overlay" onClick={closeOverlapModal}>
+    <div
+      className="modal-content overlap-modal-content"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="modal-header overlap-modal-header">
+        <div>
+          <span className="overlap-kicker">
+            LEAVE CONFLICT CHECK
+          </span>
 
-              {overlapModalData.overlaps.length > 0 ? (
-                <ul className="overlap-list">
-                  {overlapModalData.overlaps.map((o) => {
-const overlapInfo = getOverlapRange(
-  overlapModalData.target.start,
-  overlapModalData.target.end,
-  o.start,
-  o.end
-);
+          <h3>Overlapping Leaves</h3>
+        </div>
 
-  return (
-    <li key={o.id} className="overlap-item-row">
-      <div>
-        <strong>{o.employee}</strong>
-        <div>{o.start} — {o.end}</div>
+        <button className="close-btn" onClick={closeOverlapModal}>
+          &times;
+        </button>
       </div>
 
-      <div className="overlap-days-badge">
-  {overlapInfo.workingDays} working days
-  <span className="overlap-total-days">
-    ({overlapInfo.totalDays} total days)
-  </span>
-</div>
-    </li>
-  );
-})}
-                </ul>
-              ) : (
-                <div className="no-overlap mt-4">
-                  <span className="badge" style={{background: '#dcfce7', color: '#166534', border: 'none'}}>Clear!</span>
-                  <p className="muted mt-2">No other staff have leave during this period.</p>
-                </div>
-              )}
-            </div>
+      <div className="modal-body">
+        <div className="overlap-target-card">
+          <div>
+            <span>Checking conflicts for</span>
+
+            <strong>{overlapModalData.target.employee}</strong>
+
+            <small>
+              {overlapModalData.target.start} to{" "}
+              {overlapModalData.target.end}
+            </small>
           </div>
+
+          <span className="badge">
+            {overlapModalData.targetSection}
+          </span>
         </div>
-      )}
+
+        <div className="overlap-summary-grid overlap-filter-grid">
+          <button
+            type="button"
+            className={`overlap-summary-button ${
+              overlapViewFilter === "all" ? "active" : ""
+            }`}
+            onClick={() => setOverlapViewFilter("all")}
+          >
+            <strong>{overlapModalData.overlaps.length}</strong>
+            <span>Total overlaps</span>
+          </button>
+
+          <button
+            type="button"
+            className={`overlap-summary-button same-section-summary ${
+              overlapViewFilter === "same" ? "active" : ""
+            }`}
+            onClick={() => setOverlapViewFilter("same")}
+          >
+            <strong>{overlapModalData.sameSectionOverlaps.length}</strong>
+            <span>Same section</span>
+          </button>
+
+          <button
+            type="button"
+            className={`overlap-summary-button ${
+              overlapViewFilter === "other" ? "active" : ""
+            }`}
+            onClick={() => setOverlapViewFilter("other")}
+          >
+            <strong>{overlapModalData.otherSectionOverlaps.length}</strong>
+            <span>Other sections</span>
+          </button>
+        </div>
+
+        {overlapModalData.overlaps.length > 0 ? (
+          (() => {
+            const activeOverlapList =
+              overlapViewFilter === "same"
+                ? overlapModalData.sameSectionOverlaps
+                : overlapViewFilter === "other"
+                ? overlapModalData.otherSectionOverlaps
+                : overlapModalData.overlaps;
+
+            const activeTitle =
+              overlapViewFilter === "same"
+                ? "Same Section Staff on Leave"
+                : overlapViewFilter === "other"
+                ? "Other Sections on Leave"
+                : "All Overlapping Staff";
+
+            const emptyMessage =
+              overlapViewFilter === "same"
+                ? "No staff from the same section are on leave during this overlap period."
+                : overlapViewFilter === "other"
+                ? "No staff from other sections are on leave during this overlap period."
+                : "No overlapping leave records found.";
+
+            return (
+              <div className="overlap-group-stack">
+                <section className="overlap-group-block">
+                  <div className="overlap-group-title">
+                    <strong>{activeTitle}</strong>
+                    <span>{activeOverlapList.length}</span>
+                  </div>
+
+                  {activeOverlapList.length > 0 ? (
+                    <ul className="overlap-list enhanced-overlap-list">
+                      {activeOverlapList.map((leave) => (
+                        <li
+                          key={leave.id}
+                          className={`overlap-item-row enhanced-overlap-row ${
+                            leave.isSameSection
+                              ? "same-section-overlap"
+                              : ""
+                          }`}
+                        >
+                          <div className="overlap-person-main">
+                            <strong>{leave.employee}</strong>
+
+                            <span>
+                              {leave.designation || "No designation"}
+                            </span>
+
+                            <small>
+                              Supervisor: {leave.supervisor}
+                            </small>
+                          </div>
+
+                          <div className="overlap-meta-column">
+                            <span
+                              className={`badge ${
+                                leave.isSameSection
+                                  ? "same-section-badge"
+                                  : ""
+                              }`}
+                            >
+                              {leave.section}
+                            </span>
+
+                            <small>
+                              Leave: {leave.start} — {leave.end}
+                            </small>
+
+                            <small>
+                              Overlap: {leave.overlapInfo.start} —{" "}
+                              {leave.overlapInfo.end}
+                            </small>
+                          </div>
+
+                          <div className="overlap-days-badge">
+                            {leave.overlapInfo.workingDays} working days
+
+                            <span className="overlap-total-days">
+                              ({leave.overlapInfo.totalDays} total days)
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="overlap-safe-section">
+                      {emptyMessage}
+                    </div>
+                  )}
+                </section>
+              </div>
+            );
+          })()
+        ) : (
+          <div className="no-overlap mt-4">
+            <span
+              className="badge"
+              style={{
+                background: "#dcfce7",
+                color: "#166534",
+                border: "none"
+              }}
+            >
+              Clear!
+            </span>
+
+            <p className="muted mt-2">
+              No other staff have leave during this period.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
 
       {groupModalData && (
         <div className="modal-overlay" onClick={closeGroupModal}>

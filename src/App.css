@@ -3694,10 +3694,10 @@ button:disabled { opacity: 0.7; cursor: not-allowed !important; }
 
 .leave-section-page .filter-group {
   display: grid;
-  grid-template-columns: repeat(3, minmax(170px, 1fr)) auto;
+  grid-template-columns: 170px auto repeat(3, minmax(170px, 1fr)) auto;
   gap: 10px;
   align-items: center;
-  width: min(100%, 920px);
+  width: min(100%, 1120px);
 }
 
 .leave-section-page .filter-group select,
@@ -6057,4 +6057,1775 @@ select:disabled {
 
 .handover-modal-label {
   margin-top: 0;
+}
+
+/* ======================================
+   LEAVE BY SECTION DATE VIEW
+====================================== */
+
+.active-date-chip {
+  display: inline-flex;
+  justify-content: center;
+  padding: 6px 10px;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #c2410c;
+  font-size: 0.72rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+@media (max-width: 800px) {
+  .active-date-chip {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* ======================================
+   LEAVE EDIT + HANDOVER FILTER IMPROVEMENTS
+====================================== */
+
+.handover-create-box {
+  border-color: #bfdbfe;
+  background:
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 34%),
+    #f8fbff;
+}
+
+.edit-leave-modal-box {
+  width: min(620px, calc(100% - 28px));
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.edit-leave-modal-box .leave-date-grid {
+  margin-top: 14px;
+}
+
+.leave-section-page .filter-group {
+  display: grid;
+  grid-template-columns: 160px auto repeat(4, minmax(150px, 1fr)) auto;
+  gap: 10px;
+  align-items: center;
+  width: min(100%, 1280px);
+}
+
+@media (max-width: 1100px) {
+  .leave-section-page .filter-group {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .leave-section-page .filter-group button,
+  .leave-section-page .filter-group input,
+  .leave-section-page .filter-group select {
+    width: 100%;
+  }
+}
+
+@media (max-width: 700px) {
+  .edit-leave-modal-box {
+    width: calc(100% - 22px);
+    padding: 20px;
+  }
+
+  .leave-section-page .filter-group {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ======================================
+   UPGRADED STAFF PROFILE
+====================================== */
+
+.upgraded-profile-box {
+  width: min(760px, calc(100% - 28px));
+  max-height: 90vh;
+  overflow-y: auto;
+  border: 1px solid #dbeafe;
+  background:
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.1), transparent 32%),
+    #ffffff;
+}
+
+.upgraded-profile-header {
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #f8fbff, #ffffff);
+}
+
+.profile-kicker {
+  display: inline-flex;
+  margin-bottom: 4px;
+  color: #2563eb;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.profile-mini-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.profile-highlight-card {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.profile-section-block {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.profile-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.profile-section-title strong {
+  color: #0f172a;
+  font-size: 0.92rem;
+  font-weight: 900;
+}
+
+.profile-section-title span {
+  min-width: 28px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.profile-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.profile-list-row:first-of-type {
+  border-top: none;
+}
+
+.profile-list-row span {
+  color: #475569;
+  font-size: 0.86rem;
+}
+
+.profile-list-row strong {
+  color: #0f172a;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-align: right;
+}
+
+.profile-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profile-chip-list span {
+  padding: 6px 10px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+@media (max-width: 700px) {
+  .upgraded-profile-box {
+    width: calc(100% - 20px);
+    padding: 18px;
+  }
+
+  .profile-mini-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-list-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .profile-list-row strong {
+    text-align: left;
+  }
+}
+
+/* ======================================
+   LEAVE RECORDS HOVER STABILITY FIX
+====================================== */
+
+.leave-records-page .modern-table tbody tr {
+  transition: background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.leave-records-page .modern-table tbody tr:hover {
+  transform: none !important;
+  background: #f8fbff;
+  box-shadow: inset 3px 0 0 #60a5fa;
+}
+
+.leave-records-page .modern-table td {
+  vertical-align: middle;
+}
+
+.leave-records-page .action-flex {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  flex-wrap: nowrap;
+}
+
+.leave-records-page .action-flex .mr-2 {
+  margin-right: 0 !important;
+}
+
+.leave-records-page .action-flex button,
+.leave-records-page .secondary-btn-sm,
+.leave-records-page .text-danger {
+  transform: none !important;
+  scale: 1 !important;
+  min-height: 30px;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease,
+    box-shadow 0.14s ease !important;
+}
+
+.leave-records-page .action-flex button:hover,
+.leave-records-page .secondary-btn-sm:hover,
+.leave-records-page .text-danger:hover {
+  transform: none !important;
+  scale: 1 !important;
+}
+
+.leave-records-page .secondary-btn-sm:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08);
+}
+
+.leave-records-page .text-danger {
+  padding: 7px 8px !important;
+  border-radius: 8px;
+}
+
+.leave-records-page .text-danger:hover {
+  background: #fef2f2 !important;
+  color: #b91c1c !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.08);
+}
+
+/* ======================================
+   LEAVE RECORDS ACTION BUTTON STABILITY
+====================================== */
+
+.leave-records-page .action-flex {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  flex-wrap: nowrap;
+}
+
+.leave-records-page .action-flex .mr-2 {
+  margin-right: 0 !important;
+}
+
+.leave-records-page .action-flex button,
+.leave-records-page .action-flex .secondary-btn-sm,
+.leave-records-page .action-flex .text-danger {
+  transform: none !important;
+  scale: 1 !important;
+  translate: none !important;
+  min-height: 30px;
+  line-height: 1;
+  white-space: nowrap;
+  box-sizing: border-box;
+  transition:
+    background 0.14s ease,
+    color 0.14s ease,
+    border-color 0.14s ease,
+    box-shadow 0.14s ease !important;
+}
+
+.leave-records-page .action-flex button:hover,
+.leave-records-page .action-flex .secondary-btn-sm:hover,
+.leave-records-page .action-flex .text-danger:hover {
+  transform: none !important;
+  scale: 1 !important;
+  translate: none !important;
+}
+
+.leave-records-page .secondary-btn-sm:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.09);
+}
+
+.leave-records-page .text-danger {
+  padding: 7px 8px !important;
+  border-radius: 8px;
+}
+
+.leave-records-page .text-danger:hover {
+  background: #fef2f2 !important;
+  color: #b91c1c !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.09);
+}
+
+/* ======================================
+   ENHANCED OVERLAP MODAL
+====================================== */
+
+.overlap-modal-content {
+  width: min(720px, calc(100% - 28px));
+  max-height: 88vh;
+  overflow-y: auto;
+  border: 1px solid #dbeafe;
+  background:
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.1), transparent 32%),
+    #ffffff;
+}
+
+.overlap-modal-header {
+  align-items: flex-start;
+}
+
+.overlap-kicker {
+  display: inline-flex;
+  margin-bottom: 4px;
+  color: #2563eb;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.overlap-target-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #dbeafe;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 34%),
+    #f8fbff;
+}
+
+.overlap-target-card div {
+  display: grid;
+  gap: 4px;
+}
+
+.overlap-target-card span:not(.badge) {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.overlap-target-card strong {
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.overlap-target-card small {
+  color: #475569;
+}
+
+.overlap-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.overlap-summary-grid > div {
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.overlap-summary-grid strong {
+  display: block;
+  color: #0f172a;
+  font-size: 1.35rem;
+  font-weight: 950;
+}
+
+.overlap-summary-grid span {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.same-section-summary {
+  border-color: #fecaca !important;
+  background: #fff1f2 !important;
+}
+
+.same-section-summary strong,
+.same-section-summary span {
+  color: #b91c1c;
+}
+
+.overlap-group-stack {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.overlap-group-block {
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.overlap-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.overlap-group-title strong {
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 950;
+}
+
+.overlap-group-title span {
+  min-width: 28px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.enhanced-overlap-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.enhanced-overlap-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(190px, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #93c5fd;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.same-section-overlap {
+  border-color: #fecaca;
+  border-left-color: #ef4444;
+  background:
+    radial-gradient(circle at top right, rgba(248, 113, 113, 0.12), transparent 32%),
+    #fff7f7;
+}
+
+.overlap-person-main {
+  display: grid;
+  gap: 4px;
+}
+
+.overlap-person-main strong {
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 950;
+}
+
+.overlap-person-main span,
+.overlap-person-main small {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.overlap-meta-column {
+  display: grid;
+  gap: 5px;
+  justify-items: start;
+}
+
+.overlap-meta-column small {
+  color: #475569;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.same-section-badge {
+  background: #fee2e2 !important;
+  color: #b91c1c !important;
+  border-color: #fecaca !important;
+}
+
+.overlap-safe-section {
+  padding: 14px;
+  border: 1px dashed #bbf7d0;
+  border-radius: 16px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .overlap-modal-content {
+    width: calc(100% - 20px);
+  }
+
+  .overlap-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .enhanced-overlap-row {
+    grid-template-columns: 1fr;
+  }
+
+  .overlap-days-badge {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* ======================================
+   OVERLAP MODAL CLEAN LAYOUT FIX
+====================================== */
+
+.overlap-modal-content {
+  width: min(860px, calc(100% - 28px)) !important;
+  max-height: 88vh;
+  overflow-y: auto;
+  overflow-x: hidden !important;
+}
+
+.overlap-modal-content .modal-body {
+  overflow-x: hidden !important;
+}
+
+.overlap-target-card {
+  align-items: flex-start;
+}
+
+.overlap-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+.enhanced-overlap-row {
+  display: grid !important;
+  grid-template-columns: minmax(180px, 0.9fr) minmax(260px, 1.2fr) minmax(120px, auto) !important;
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.overlap-person-main,
+.overlap-meta-column,
+.overlap-days-badge {
+  min-width: 0;
+}
+
+.overlap-person-main strong,
+.overlap-person-main span,
+.overlap-person-main small,
+.overlap-meta-column small {
+  overflow-wrap: anywhere;
+}
+
+.overlap-meta-column .badge {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.overlap-days-badge {
+  justify-self: end;
+  min-width: 118px;
+  padding: 8px 10px;
+  border: 1px solid #bbf7d0;
+  border-radius: 14px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-align: center;
+  white-space: normal;
+}
+
+.overlap-total-days {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+/* Better same-section warning card */
+.same-section-overlap {
+  border-left-width: 5px;
+}
+
+/* When modal is not wide enough, stack nicely */
+@media (max-width: 900px) {
+  .overlap-modal-content {
+    width: min(620px, calc(100% - 24px)) !important;
+  }
+
+  .enhanced-overlap-row {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  .overlap-meta-column {
+    justify-items: start;
+  }
+
+  .overlap-days-badge {
+    justify-self: stretch;
+    width: 100%;
+  }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .overlap-modal-content {
+    width: calc(100% - 18px) !important;
+    max-height: 90vh;
+    border-radius: 18px;
+  }
+
+  .overlap-summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .overlap-target-card {
+    flex-direction: column;
+  }
+
+  .overlap-group-block {
+    padding: 10px;
+  }
+
+  .enhanced-overlap-row {
+    padding: 12px;
+  }
+}
+
+/* ======================================
+   OVERLAP MODAL WIDER FINAL LAYOUT FIX
+====================================== */
+
+.overlap-modal-content {
+  width: min(980px, calc(100vw - 80px)) !important;
+  max-width: 980px !important;
+  max-height: 88vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 26px !important;
+}
+
+.overlap-modal-content .modal-body {
+  overflow-x: hidden !important;
+}
+
+/* Header */
+.overlap-modal-header {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+/* Top target card */
+.overlap-target-card {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px;
+}
+
+/* Summary cards */
+.overlap-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+}
+
+/* Main grouped sections */
+.overlap-group-block {
+  padding: 16px !important;
+  border-radius: 20px !important;
+}
+
+/* Each staff row */
+.enhanced-overlap-row {
+  display: grid !important;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(320px, 1.25fr) minmax(135px, auto) !important;
+  gap: 18px !important;
+  align-items: center !important;
+  width: 100% !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+}
+
+/* Left side: employee details */
+.overlap-person-main {
+  min-width: 0;
+}
+
+.overlap-person-main strong {
+  font-size: 0.94rem !important;
+}
+
+.overlap-person-main span,
+.overlap-person-main small {
+  font-size: 0.78rem !important;
+}
+
+/* Middle side: section + date details */
+.overlap-meta-column {
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: auto 1fr;
+  gap: 7px 10px !important;
+  align-items: center;
+}
+
+.overlap-meta-column .badge {
+  grid-column: 1 / -1;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.overlap-meta-column small {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.35;
+}
+
+/* Right side: working days */
+.overlap-days-badge {
+  justify-self: end !important;
+  min-width: 135px !important;
+  padding: 10px 12px !important;
+  border: 1px solid #bbf7d0 !important;
+  border-radius: 16px !important;
+  background: #f0fdf4 !important;
+  color: #166534 !important;
+  font-size: 0.8rem !important;
+  font-weight: 900 !important;
+  text-align: center !important;
+  white-space: normal !important;
+}
+
+.overlap-total-days {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+/* Same section should look more serious */
+.same-section-overlap {
+  border-left-width: 5px !important;
+  border-left-color: #ef4444 !important;
+  background:
+    radial-gradient(circle at top right, rgba(248, 113, 113, 0.12), transparent 30%),
+    #fff7f7 !important;
+}
+
+/* Same-section badge */
+.same-section-badge {
+  background: #fee2e2 !important;
+  color: #b91c1c !important;
+  border-color: #fecaca !important;
+}
+
+/* Medium screens */
+@media (max-width: 1100px) {
+  .overlap-modal-content {
+    width: min(820px, calc(100vw - 40px)) !important;
+    max-width: 820px !important;
+  }
+
+  .enhanced-overlap-row {
+    grid-template-columns: minmax(190px, 1fr) minmax(260px, 1fr) minmax(125px, auto) !important;
+  }
+}
+
+/* Smaller screens: stack cleanly */
+@media (max-width: 760px) {
+  .overlap-modal-content {
+    width: calc(100vw - 22px) !important;
+    max-width: none !important;
+    padding: 20px !important;
+  }
+
+  .overlap-target-card {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+  }
+
+  .overlap-summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .enhanced-overlap-row {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .overlap-meta-column {
+    grid-template-columns: 1fr !important;
+  }
+
+  .overlap-days-badge {
+    width: 100% !important;
+    justify-self: stretch !important;
+  }
+}
+
+/* ======================================
+   OVERLAP MODAL CLICKABLE FILTER CARDS
+====================================== */
+
+.overlap-filter-grid {
+  align-items: stretch;
+}
+
+.overlap-summary-button {
+  width: 100%;
+  min-height: 82px;
+  padding: 14px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #f8fafc;
+  color: #64748b;
+  cursor: pointer;
+  text-align: center;
+  box-shadow: none;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.overlap-summary-button strong {
+  display: block;
+  color: #0f172a;
+  font-size: 1.55rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.overlap-summary-button span {
+  display: block;
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
+.overlap-summary-button:hover {
+  transform: translateY(-2px);
+  border-color: #93c5fd;
+  background: #eff6ff;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.12);
+}
+
+.overlap-summary-button.active {
+  border-color: #60a5fa;
+  background: #eff6ff;
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.1),
+    0 12px 26px rgba(37, 99, 235, 0.12);
+}
+
+.overlap-summary-button.same-section-summary {
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
+.overlap-summary-button.same-section-summary strong,
+.overlap-summary-button.same-section-summary span {
+  color: #b91c1c;
+}
+
+.overlap-summary-button.same-section-summary.active {
+  border-color: #ef4444;
+  background: #fff1f2;
+  box-shadow:
+    0 0 0 3px rgba(239, 68, 68, 0.1),
+    0 12px 26px rgba(239, 68, 68, 0.12);
+}
+
+/* Prevent global stretch button effect from disturbing these filter cards */
+.overlap-summary-button,
+.overlap-summary-button:hover,
+.overlap-summary-button:active {
+  letter-spacing: normal !important;
+}
+
+@media (max-width: 760px) {
+  .overlap-summary-button {
+    min-height: 70px;
+  }
+}
+
+/* ======================================
+   MOBILE LEAVE RECORDS LAYOUT FIX
+====================================== */
+
+@media (max-width: 760px) {
+  .records-mobile-page {
+    padding: 16px;
+    border-radius: 22px;
+  }
+
+  .records-mobile-page .table-header {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    background: #ffffff;
+  }
+
+  .records-mobile-page .table-header h2 {
+    margin: 0;
+    font-size: 1.05rem;
+  }
+
+  .records-mobile-page .filter-group {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .records-mobile-page .filter-group input,
+  .records-mobile-page .filter-group button,
+  .records-mobile-page .filter-group .primary-btn-sm,
+  .records-mobile-page .filter-group .secondary-btn-sm {
+    width: 100%;
+  }
+
+  .records-mobile-page .table-container {
+    margin-top: 16px;
+    overflow: visible;
+    border: none;
+    background: transparent;
+  }
+
+  .records-mobile-page .modern-table,
+  .records-mobile-page .modern-table thead,
+  .records-mobile-page .modern-table tbody,
+  .records-mobile-page .modern-table th,
+  .records-mobile-page .modern-table td,
+  .records-mobile-page .modern-table tr {
+    display: block;
+    width: 100%;
+  }
+
+  .records-mobile-page .modern-table thead {
+    display: none;
+  }
+
+  .records-mobile-page .modern-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .records-mobile-page .modern-table tr {
+    padding: 14px;
+    border: 1px solid #dbeafe;
+    border-radius: 18px;
+    background:
+      radial-gradient(circle at top right, rgba(37, 99, 235, 0.07), transparent 34%),
+      #ffffff;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.05);
+  }
+
+  .records-mobile-page .modern-table tr:hover {
+    transform: none !important;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.05);
+  }
+
+  .records-mobile-page .modern-table td {
+    display: grid;
+    grid-template-columns: 96px 1fr;
+    gap: 10px;
+    align-items: start;
+    padding: 8px 0;
+    border: none;
+    color: #0f172a;
+    font-size: 0.88rem;
+  }
+
+  .records-mobile-page .modern-table td::before {
+    color: #64748b;
+    font-size: 0.68rem;
+    font-weight: 950;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .records-mobile-page .modern-table td:nth-child(1)::before {
+    content: "Staff";
+  }
+
+  .records-mobile-page .modern-table td:nth-child(2)::before {
+    content: "Duration";
+  }
+
+  .records-mobile-page .modern-table td:nth-child(3)::before {
+    content: "Days";
+  }
+
+  .records-mobile-page .modern-table td:nth-child(4)::before {
+    content: "Action";
+  }
+
+  .records-mobile-page .modern-table td:nth-child(1) {
+    padding-top: 0;
+  }
+
+  .records-mobile-page .modern-table td:nth-child(1) strong,
+  .records-mobile-page .modern-table td:nth-child(1) button {
+    color: #1d4ed8;
+    font-weight: 950;
+  }
+
+  .records-mobile-page .modern-table td:nth-child(4) {
+    grid-template-columns: 1fr;
+  }
+
+  .records-mobile-page .modern-table td:nth-child(4)::before {
+    margin-bottom: 6px;
+  }
+
+  .records-mobile-page .action-flex {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .records-mobile-page .action-flex button,
+  .records-mobile-page .secondary-btn-sm,
+  .records-mobile-page .text-danger {
+    width: 100%;
+    min-height: 36px;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .records-mobile-page .text-danger {
+    padding: 9px 10px !important;
+    border: 1px solid #fecaca !important;
+    border-radius: 10px;
+    background: #fff5f5 !important;
+  }
+}
+
+/* ======================================
+   FINAL MOBILE RESPONSIVE OVERRIDE - V5.2
+   Apply after all existing CSS
+====================================== */
+
+@media (max-width: 760px) {
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .app-shell,
+  .main-content,
+  .content-area {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .main-content {
+    padding: 1rem;
+  }
+
+  .content-area {
+    display: block;
+  }
+
+  .panel {
+    width: 100%;
+    max-width: 100%;
+    padding: 16px;
+    border-radius: 22px;
+  }
+
+  /* Header should not squeeze badly */
+  .main-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 10px 0;
+  }
+
+  .burger-btn {
+    min-width: 34px;
+  }
+
+  .page-title {
+    max-width: 100%;
+    font-size: 0.95rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .user-profile {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+  }
+
+  .user-profile span {
+    max-width: 145px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.64rem;
+    padding: 6px 8px;
+  }
+
+  .logout-btn {
+    margin-left: 0;
+    padding: 6px 8px;
+    font-size: 0.68rem;
+    white-space: nowrap;
+  }
+
+  /* All grids become single column safely */
+  .admin-grid,
+  .home-grid,
+  .council-overview-main-grid,
+  .reports-grid,
+  .notice-admin-grid,
+  .notice-feed,
+  .notice-board-preview-grid,
+  .profile-info-grid,
+  .profile-mini-grid,
+  .leave-date-grid,
+  .notice-form-two-columns,
+  .council-plan-grid,
+  .council-actions-grid,
+  .council-summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Table headers / filter bars */
+  .table-header {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 14px;
+    padding: 14px;
+    align-items: stretch !important;
+  }
+
+  .table-header h2 {
+    font-size: 1.05rem;
+    margin-bottom: 4px;
+  }
+
+  .table-header .muted {
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+
+  .filter-group {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .filter-group input,
+  .filter-group select,
+  .filter-group button,
+  .filter-group .primary-btn-sm,
+  .filter-group .secondary-btn-sm,
+  .filter-group .refresh-btn {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  /* Tables except Leave Records card table */
+  .table-container {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto !important;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 18px;
+  }
+
+  .table-container::before {
+    content: "Swipe table →";
+    display: block;
+    padding: 8px 12px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 0.72rem;
+    font-weight: 900;
+    border-bottom: 1px solid #dbeafe;
+  }
+
+  .records-mobile-page .table-container::before {
+    display: none;
+  }
+
+  .modern-table {
+    min-width: 720px;
+  }
+
+  .modern-table th,
+  .modern-table td {
+    padding: 11px 10px;
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+
+  .modern-table tbody tr:hover {
+    transform: none !important;
+  }
+
+  /* Keep first column readable on scroll tables */
+  .modern-table th:first-child,
+  .modern-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    background: #ffffff;
+    box-shadow: 1px 0 0 #e2e8f0;
+  }
+
+  .modern-table thead th:first-child {
+    background: #f8fbff;
+    z-index: 5;
+  }
+
+  /* Leave Records already has card layout */
+  .records-mobile-page .modern-table {
+    min-width: 0 !important;
+  }
+
+  .records-mobile-page .modern-table th:first-child,
+  .records-mobile-page .modern-table td:first-child {
+    position: static;
+    box-shadow: none;
+  }
+
+  .records-mobile-page .modern-table td {
+    white-space: normal;
+  }
+
+  /* Staff directory / bulk toolbar */
+  .directory-bulk-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .directory-bulk-toolbar button,
+  .directory-bulk-toolbar .secondary-btn-sm,
+  .directory-bulk-toolbar .primary-btn-sm {
+    width: 100%;
+  }
+
+  .directory-selection-count {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* General list cards */
+  .closest-item {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .closest-item > div:last-child {
+    width: 100%;
+  }
+
+  .closest-item .badge,
+  .closest-item .closest-tag,
+  .return-work-badge {
+    width: 100%;
+    text-align: center;
+  }
+
+  .closest-info {
+    width: 100%;
+  }
+
+  /* Leave by Section cards */
+  .handover-leave-card,
+  .leave-section-card {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+  }
+
+  .handover-column {
+    width: 100%;
+  }
+
+  .handover-name {
+    width: 100%;
+    text-align: center;
+  }
+
+  .leave-section-actions {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .handover-btn {
+    width: 100%;
+  }
+
+  /* Reports */
+  .reports-hero {
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .reports-hero h2 {
+    font-size: 1.35rem;
+  }
+
+  .report-date-box {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .official-report {
+    padding: 16px;
+    overflow-x: auto;
+  }
+
+  .official-report-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .report-table {
+    min-width: 680px;
+  }
+
+  /* Notice Board */
+  .notice-board-page {
+    gap: 16px;
+  }
+
+  .notice-board-hero {
+    padding: 22px;
+    border-radius: 22px;
+  }
+
+  .notice-board-hero h2 {
+    font-size: 1.45rem;
+  }
+
+  .notice-board-toolbar,
+  .notice-admin-access,
+  .notice-admin-panel-header,
+  .notice-manage-row,
+  .notice-card-topline {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .notice-admin-access-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .notice-manage-row-main > strong,
+  .notice-file-card-copy strong {
+    white-space: normal;
+  }
+
+  .notice-file-card {
+    align-items: flex-start;
+  }
+
+  /* Council overview */
+  .council-overview-page {
+    gap: 16px;
+  }
+
+  .council-overview-hero {
+    padding: 22px;
+    border-radius: 22px;
+  }
+
+  .council-overview-hero h2 {
+    font-size: 1.45rem;
+  }
+
+  .council-summary-card,
+  .council-plan-item,
+  .council-actions-grid button {
+    min-height: auto;
+  }
+
+  .council-attention-item,
+  .council-section-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .council-attention-item button,
+  .council-section-row .badge {
+    width: 100%;
+  }
+
+  /* Staff profile popup */
+  .presence-popup-overlay,
+  .confirm-overlay,
+  .modal-overlay {
+    align-items: flex-start;
+    padding: 12px;
+    overflow-y: auto;
+  }
+
+  .employee-profile-box,
+  .upgraded-profile-box,
+  .presence-popup-box,
+  .confirm-box,
+  .bulk-supervisor-box,
+  .handover-modal-box,
+  .edit-leave-modal-box {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .employee-profile-header,
+  .upgraded-profile-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .employee-avatar {
+    width: 58px;
+    height: 58px;
+    border-radius: 18px;
+    font-size: 1.5rem;
+  }
+
+  .profile-list-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .profile-list-row strong {
+    text-align: left;
+  }
+
+  /* Overlap modal mobile */
+  .overlap-modal-content {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: calc(100vh - 24px) !important;
+    padding: 18px !important;
+    border-radius: 22px;
+  }
+
+  .overlap-target-card {
+    align-items: stretch !important;
+    flex-direction: column !important;
+  }
+
+  .overlap-summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .overlap-summary-button {
+    min-height: 68px;
+  }
+
+  .enhanced-overlap-row {
+    grid-template-columns: 1fr !important;
+    padding: 14px !important;
+  }
+
+  .overlap-meta-column {
+    grid-template-columns: 1fr !important;
+  }
+
+  .overlap-days-badge {
+    width: 100% !important;
+    justify-self: stretch !important;
+  }
+
+  /* Forms */
+  .form-stack,
+  .leave-entry-form {
+    gap: 12px;
+  }
+
+  .leave-entry-header,
+  .notice-admin-panel-header,
+  .notice-form-title-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .leave-entry-status-pill {
+    width: 100%;
+  }
+
+  .leave-summary-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .confirm-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  /* Presence board */
+  .presence-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .presence-card {
+    min-height: 96px;
+  }
+
+  .presence-card:hover {
+    transform: none;
+  }
+
+  .presence-tooltip {
+    position: static;
+    margin-top: 10px;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  /* Hukuru / mini calendar */
+  .hukuru-mini-calendar {
+    left: 50%;
+    width: min(300px, calc(100vw - 36px));
+    transform: translateX(-50%);
+  }
+
+  .hukuru-date-picker {
+    width: 100%;
+  }
+
+  .hukuru-date-badge {
+    width: 100%;
+  }
+
+  /* Avoid hover movement on mobile */
+  .primary-btn:hover,
+  .primary-btn-sm:hover,
+  .secondary-btn-sm:hover,
+  .refresh-btn:hover,
+  .google-login-btn:hover,
+  .notice-admin-btn:hover,
+  .council-actions-grid button:hover,
+  .closest-item:hover,
+  .notice-card:hover,
+  .report-card:hover,
+  .council-summary-card:hover,
+  .leave-section-card:hover {
+    transform: none !important;
+    letter-spacing: normal !important;
+  }
+}
+
+/* Very small phone screens */
+@media (max-width: 430px) {
+  .main-content {
+    padding: 0.8rem;
+  }
+
+  .panel {
+    padding: 14px;
+  }
+
+  .main-header {
+    grid-template-columns: auto 1fr;
+  }
+
+  .user-profile {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+
+  .user-profile span {
+    max-width: 180px;
+  }
+
+  .modern-table {
+    min-width: 650px;
+  }
+
+  .calendar-box {
+    border-radius: 16px;
+  }
+
+  .cal-day {
+    min-height: 52px;
+  }
+
+  .cal-date-number {
+    font-size: 0.72rem;
+  }
+
+  .cal-holiday-name {
+    font-size: 0.38rem;
+  }
+}
+
+/* ======================================
+   MOBILE TABLE SWIPE FIX - V5.3
+   Fixes sticky first-column breaking on swipe
+====================================== */
+
+@media (max-width: 760px) {
+  .table-container {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  /* Keep the swipe label fixed while the table scrolls */
+  .table-container::before {
+    position: sticky;
+    left: 0;
+    z-index: 20;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* IMPORTANT: remove sticky first column on mobile */
+  .modern-table th:first-child,
+  .modern-table td:first-child {
+    position: static !important;
+    left: auto !important;
+    z-index: auto !important;
+    background: inherit !important;
+    box-shadow: none !important;
+  }
+
+  .modern-table thead th:first-child {
+    position: static !important;
+    z-index: auto !important;
+    background: #f8fbff !important;
+  }
+
+  /* Make normal scroll tables stable */
+  .modern-table {
+    min-width: 680px;
+    width: max-content;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .modern-table th,
+  .modern-table td {
+    white-space: nowrap;
+  }
+
+  .modern-table th:first-child,
+  .modern-table td:first-child {
+    min-width: 170px;
+    max-width: 220px;
+    white-space: normal;
+  }
+
+  /* Stop table row hover/transform issues on mobile */
+  .modern-table tbody tr,
+  .modern-table tbody tr:hover {
+    transform: none !important;
+  }
+
+  /* Leave Records card layout should stay as cards */
+  .records-mobile-page .modern-table {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .records-mobile-page .modern-table th:first-child,
+  .records-mobile-page .modern-table td:first-child {
+    min-width: 0;
+    max-width: none;
+  }
 }
