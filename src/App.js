@@ -95,46 +95,51 @@ const addReportHeaderFooter = (pdf, title, totalRecords) => {
 
 const recentBuildUpgrades = [
   {
-    title: "Edit Leave Record",
-    detail: "Leave records can now be edited instead of deleting and recreating them."
+    title: "Admin Panel Phase 2",
+    detail: "Staff Registration, Add Leave Record and Holiday Management were moved into the Admin Panel."
   },
   {
-    title: "Work Handover",
-    detail: "Leave records can store up to 3 handover staff members."
+    title: "Staff Admin Controls",
+    detail: "Admin Panel now includes update email, activate/deactivate, delete staff and bulk supervisor or section changes."
   },
   {
-    title: "Work Handover During Leave Creation",
-    detail: "Handover staff can be selected while adding a new leave record."
+    title: "Leave Admin Controls",
+    detail: "Admin Panel now includes edit leave, delete leave, check overlaps and update work handover controls."
   },
   {
-    title: "Handover Missing Filter",
-    detail: "Leave by Section can now filter handover done and handover missing records."
+    title: "Group Admin Controls",
+    detail: "Staff groups can now be created, edited, viewed and deleted from the Admin Panel."
   },
   {
-    title: "Better Reports",
-    detail: "PDF reports now include section, supervisor, back-to-work date and handover details."
+    title: "View-Only Staff Directory",
+    detail: "Staff Directory is now a clean viewing page with search, filters, status and staff profile access."
   },
   {
-    title: "Staff Profile Upgrade",
-    detail: "Staff profile now shows leave history, groups, supervisor, handovers and current status."
+    title: "View-Only Leave Records",
+    detail: "Leave Records is now a viewing page. Editing and deletion are handled from the Admin Panel."
   },
   {
-    title: "Improved Overlap Checker",
-    detail: "Overlap popup now separates total, same-section and other-section conflicts."
+    title: "View-Only Staff Groups",
+    detail: "Staff Groups page now focuses on viewing groups and members. Management is handled from the Admin Panel."
   },
   {
-    title: "Leave by Section Upgrade",
-    detail: "Added date, section, supervisor, handover and staff search filters."
+    title: "Old Admin Tab Removed",
+    detail: "The older hidden Admin tab was removed so all management actions now use the new Admin Panel."
   },
   {
-    title: "Mobile Layout Improvements",
-    detail: "Improved mobile layout for tables, cards, modals and page spacing."
+    title: "Smart Admin Shortcuts",
+    detail: "Admin shortcuts now remember the selected section and scroll there automatically after unlocking."
   },
   {
-    title: "Home Calendar Improvements",
-    detail: "Improved holiday labels, mobile calendar layout and selected-date display."
+    title: "Leave by Section Restored",
+    detail: "Leave by Section was restored with date, section, supervisor, handover and staff search filters."
+  },
+  {
+    title: "Calendar Readability",
+    detail: "Home calendar date numbers were enlarged for better visibility."
   }
 ];
+
 
 function App() {
   const [activeTab, setActiveTab] = useState("home");
@@ -175,7 +180,6 @@ function App() {
   const [vagutheePassword, setVagutheePassword] = useState("");
   const [showVagutheeEditor, setShowVagutheeEditor] = useState(true);
   const [vagutheeSearch, setVagutheeSearch] = useState("");
-  const [showGroupForm, setShowGroupForm] = useState(true);
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -194,6 +198,7 @@ function App() {
 
   const [adminPanelUnlocked, setAdminPanelUnlocked] = useState(false);
   const [adminPanelPassword, setAdminPanelPassword] = useState("");
+  const [pendingAdminSection, setPendingAdminSection] = useState("");
 
   const [employeeEmailPinModal, setEmployeeEmailPinModal] = useState(null);
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
@@ -258,6 +263,7 @@ const unlockAdminPanel = () => {
 const lockAdminPanel = () => {
   setAdminPanelUnlocked(false);
   setAdminPanelPassword("");
+  setPendingAdminSection("");
   showToast("Admin Panel locked.");
 };
 
@@ -291,6 +297,7 @@ const handleLogin = async (e) => {
 const handleLogout = async () => {
   setAdminPanelUnlocked(false);
   setAdminPanelPassword("");
+  setPendingAdminSection("");
   await signOut(auth);
 };
 
@@ -1111,17 +1118,29 @@ const closeSidebarAndGo = (tab) => {
 const openAdminPanelSection = (sectionId = "") => {
   setActiveTab("admin-panel");
   setIsSidebarOpen(false);
-
-  if (sectionId) {
-    setTimeout(() => {
-      document.getElementById(sectionId)?.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-      });
-    }, 160);
-  }
+  setPendingAdminSection(sectionId);
 };
 
+useEffect(() => {
+  if (
+    activeTab !== "admin-panel" ||
+    !adminPanelUnlocked ||
+    !pendingAdminSection
+  ) {
+    return;
+  }
+
+  const sectionId = pendingAdminSection;
+
+  setTimeout(() => {
+    document.getElementById(sectionId)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+
+    setPendingAdminSection("");
+  }, 220);
+}, [activeTab, adminPanelUnlocked, pendingAdminSection]);
 
 const getFunadhooTime = () => {
   return new Date().toLocaleTimeString("en-GB", {
@@ -2261,21 +2280,6 @@ const toggleDirectoryEmployeeSelection = (employeeId) => {
   );
 };
 
-const toggleAllVisibleEmployees = () => {
-  const visibleIds = filteredEmployees.map((employee) => employee.id);
-
-  const allVisibleAlreadySelected =
-    visibleIds.length > 0 &&
-    visibleIds.every((id) => selectedEmployeeIds.includes(id));
-
-  setSelectedEmployeeIds((previous) => {
-    if (allVisibleAlreadySelected) {
-      return previous.filter((id) => !visibleIds.includes(id));
-    }
-
-    return [...new Set([...previous, ...visibleIds])];
-  });
-};
 
 const openBulkSupervisorModal = () => {
   if (selectedEmployeeIds.length === 0) {
@@ -3028,7 +3032,6 @@ const editGroup = (group) => {
     name: group.name || "",
     members: group.members || []
   });
-  setShowGroupForm(true);
 };
 const loadYaumiyya = async (date) => {
   try {
@@ -3592,11 +3595,6 @@ const selectedDirectoryEmployees = employees.filter((employee) =>
   selectedEmployeeIds.includes(employee.id)
 );
 
-const allVisibleEmployeesSelected =
-  filteredEmployees.length > 0 &&
-  filteredEmployees.every((employee) =>
-    selectedEmployeeIds.includes(employee.id)
-  );
 
 const availableBulkSupervisors = [...activeEmployees]
   .filter(
@@ -4313,8 +4311,9 @@ const councilAttentionItems = [
           title: `${councilUnassignedSupervisors} active staff without a supervisor`,
           detail:
             "Review the reporting structure and assign a supervisor.",
-          tab: "directory",
-          action: "Open Directory"
+          tab: "admin-panel",
+sectionId: "admin-staff-section",
+action: "Open Staff Admin"
         }
       ]
     : []),
@@ -4328,8 +4327,9 @@ const councilAttentionItems = [
           } without members`,
           detail:
             "Review saved groups and add the correct staff members.",
-          tab: "groups",
-          action: "Open Groups"
+          tab: "admin-panel",
+sectionId: "admin-group-section",
+action: "Open Group Admin"
         }
       ]
     : []),
@@ -4353,14 +4353,15 @@ const councilAttentionItems = [
   councilNextHoliday.date <= councilOverviewTwoWeeksEnd
     ? [
         {
-          id: "holiday",
-          title: `Upcoming public holiday: ${councilNextHoliday.name}`,
-          detail: `${formatNoticeDate(
-            councilNextHoliday.date
-          )} is within the next 14 days.`,
-          tab: "admin",
-          action: "View Holidays"
-        }
+  id: "holiday",
+  title: `Upcoming public holiday: ${councilNextHoliday.name}`,
+  detail: `${formatNoticeDate(
+    councilNextHoliday.date
+  )} is within the next 14 days.`,
+  tab: "admin-panel",
+  sectionId: "admin-holiday-section",
+  action: "View Holidays"
+}
       ]
     : [])
 ];
@@ -4725,7 +4726,7 @@ return (
 
   <div className="brand-text">
     <span className="brand-title">Funadhoo Council</span>
-    <small className="brand-version">V5.0</small>
+    <small className="brand-version">V5.2</small>
   </div>
 </div>
         <ul className="nav-menu">
@@ -6094,12 +6095,16 @@ return (
                 </div>
 
                 <button
-                  type="button"
-                  className="secondary-btn-sm"
-                  onClick={() => closeSidebarAndGo(item.tab)}
-                >
-                  {item.action}
-                </button>
+  type="button"
+  className="secondary-btn-sm"
+  onClick={() =>
+    item.sectionId
+      ? openAdminPanelSection(item.sectionId)
+      : closeSidebarAndGo(item.tab)
+  }
+>
+  {item.action}
+</button>
               </div>
             ))}
           </div>
@@ -6389,7 +6394,7 @@ Holiday Management.
 
           <button
             type="button"
-            onClick={() => closeSidebarAndGo("groups")}
+            onClick={() => openAdminPanelSection("admin-group-section")}
           >
             <span>◫</span>
             Create Group
@@ -6550,6 +6555,179 @@ Holiday Management.
         </button>
       </div>
     </form>
+
+    <div className="admin-work-card admin-management-card">
+      <div className="admin-management-header">
+        <div>
+          <span className="admin-panel-kicker">STAFF CONTROLS</span>
+          <h3>Manage Existing Staff</h3>
+          <p>
+            Update email, activate/deactivate, delete staff and apply bulk
+            supervisor or section changes.
+          </p>
+        </div>
+
+        <span className="admin-work-count">
+          {selectedEmployeeIds.length} selected
+        </span>
+      </div>
+
+      <div className="admin-management-toolbar">
+        <input
+          type="text"
+          placeholder="Search staff name"
+          value={employeeSearch}
+          onChange={(e) => setEmployeeSearch(e.target.value)}
+        />
+
+        <select
+          value={dirFilter.section}
+          onChange={(e) =>
+            setDirFilter({ ...dirFilter, section: e.target.value })
+          }
+        >
+          <option value="">All Sections</option>
+
+          {directorySectionOptions.map((section) => (
+            <option key={section} value={section}>
+              {section}
+            </option>
+          ))}
+        </select>
+
+        <input
+          type="text"
+          placeholder="Filter by supervisor"
+          value={dirFilter.supervisor}
+          onChange={(e) =>
+            setDirFilter({
+              ...dirFilter,
+              supervisor: e.target.value
+            })
+          }
+        />
+      </div>
+
+      <div className="directory-bulk-toolbar admin-bulk-toolbar">
+        <span className="directory-selection-count">
+          {selectedEmployeeIds.length} selected
+        </span>
+
+        <button
+          type="button"
+          className="secondary-btn-sm"
+          disabled={selectedEmployeeIds.length === 0}
+          onClick={openBulkSupervisorModal}
+        >
+          Change Supervisor
+        </button>
+
+        <button
+          type="button"
+          className="secondary-btn-sm"
+          disabled={selectedEmployeeIds.length === 0}
+          onClick={openBulkSectionModal}
+        >
+          Change Section
+        </button>
+
+        {selectedEmployeeIds.length > 0 && (
+          <button
+            type="button"
+            className="directory-clear-selection-btn"
+            onClick={() => setSelectedEmployeeIds([])}
+          >
+            Clear Selection
+          </button>
+        )}
+      </div>
+
+      <div className="admin-staff-admin-list">
+        {filteredEmployees.map((employee) => (
+          <article className="admin-staff-admin-row" key={employee.id}>
+            <label className="admin-staff-select">
+              <input
+                type="checkbox"
+                checked={selectedEmployeeIds.includes(employee.id)}
+                onChange={() =>
+                  toggleDirectoryEmployeeSelection(employee.id)
+                }
+              />
+            </label>
+
+            <div className="admin-staff-admin-main">
+              <button
+                type="button"
+                className="profile-link"
+                onClick={() => openEmployeeProfile(employee)}
+              >
+                {employee.name}
+              </button>
+
+              <small>
+                {employee.designation || "No designation"} •{" "}
+                {employee.section || "No section"}
+              </small>
+
+              <small>
+                Supervisor: {getSupervisorDisplayName(employee) || "—"}
+              </small>
+
+              <small>
+                Email: {employee.email || "Not added"}
+              </small>
+            </div>
+
+            <div className="admin-staff-admin-status">
+              <span
+                className={`badge ${
+                  employee.status === "inactive"
+                    ? "inactive-badge"
+                    : "active-badge"
+                }`}
+              >
+                {employee.status === "inactive" ? "Inactive" : "Active"}
+              </span>
+            </div>
+
+            <div className="admin-staff-admin-actions">
+              <button
+                type="button"
+                className="secondary-btn-sm"
+                onClick={() => requestEmployeeEmailAccess(employee)}
+              >
+                {employee.email ? "Update Email" : "Add Email"}
+              </button>
+
+              <button
+                type="button"
+                className="secondary-btn-sm"
+                onClick={() => toggleEmployeeStatus(employee)}
+              >
+                {employee.status === "inactive"
+                  ? "Activate"
+                  : "Deactivate"}
+              </button>
+
+              <button
+                type="button"
+                className="text-danger admin-danger-btn"
+                onClick={() => removeEmployee(employee.id)}
+              >
+                Delete
+              </button>
+            </div>
+          </article>
+        ))}
+
+        {filteredEmployees.length === 0 && (
+          <div className="admin-empty-box">
+            No staff found for the selected filters.
+          </div>
+        )}
+      </div>
+    </div>
+
   </section>
 
   <section
@@ -6777,6 +6955,112 @@ Holiday Management.
         </button>
       </div>
     </form>
+
+    <div className="admin-work-card admin-management-card">
+      <div className="admin-management-header">
+        <div>
+          <span className="admin-panel-kicker">LEAVE CONTROLS</span>
+          <h3>Manage Existing Leave Records</h3>
+          <p>
+            Search leave records, check overlaps, edit leave, update handover
+            and delete records.
+          </p>
+        </div>
+
+        <span className="admin-work-count">
+          {filteredLeaves.length} shown
+        </span>
+      </div>
+
+      <div className="admin-management-toolbar">
+        <input
+          type="text"
+          placeholder="Search employee in leave records"
+          value={leaveSearch}
+          onChange={(e) => setLeaveSearch(e.target.value)}
+        />
+
+        <button
+          type="button"
+          className="secondary-btn-sm"
+          onClick={refreshData}
+        >
+          Refresh
+        </button>
+      </div>
+
+      <div className="admin-leave-admin-list">
+        {filteredLeaves.map((leave) => {
+          const handoverList = normalizeHandoverList(
+            leave.workHandoverTo
+          );
+
+          return (
+            <article className="admin-leave-admin-row" key={leave.id}>
+              <div className="admin-leave-admin-main">
+                <strong>{leave.employee}</strong>
+
+                <small>
+                  {leave.start} — {leave.end}
+                </small>
+
+                <small>
+                  {calculateLeaveDays(leave.start, leave.end)} working days
+                </small>
+
+                <small>
+                  Work Handover:{" "}
+                  {handoverList.length > 0
+                    ? handoverList.join(", ")
+                    : "Not selected"}
+                </small>
+              </div>
+
+              <div className="admin-leave-admin-actions">
+                <button
+                  type="button"
+                  className="secondary-btn-sm"
+                  onClick={() => viewOverlaps(leave)}
+                >
+                  Check Overlaps
+                </button>
+
+                <button
+                  type="button"
+                  className="secondary-btn-sm"
+                  onClick={() => openEditLeaveModal(leave)}
+                >
+                  Edit
+                </button>
+
+                <button
+                  type="button"
+                  className="secondary-btn-sm"
+                  onClick={() => openWorkHandoverModal(leave)}
+                >
+                  Work Handover
+                </button>
+
+                <button
+                  type="button"
+                  className="text-danger admin-danger-btn"
+                  onClick={() => removeLeave(leave.id)}
+                >
+                  Delete
+                </button>
+              </div>
+            </article>
+          );
+        })}
+
+        {filteredLeaves.length === 0 && (
+          <div className="admin-empty-box">
+            No leave records found.
+          </div>
+        )}
+      </div>
+    </div>
+
   </section>
 
   <section
@@ -6887,53 +7171,232 @@ Holiday Management.
   </section>
 
   <section
-    id="admin-group-section"
-    className="admin-work-section"
+  id="admin-group-section"
+  className="admin-work-section"
+>
+  <div className="admin-work-header">
+    <div>
+      <span className="admin-panel-kicker">GROUP ADMIN</span>
+      <h3>Staff Group Management</h3>
+      <p>
+        Create staff groups, edit members and delete groups from the Admin Panel.
+      </p>
+    </div>
+
+    <span className="admin-work-count">
+      {staffGroups.length} staff groups
+    </span>
+  </div>
+
+  <form
+    className="admin-work-card admin-group-form-card"
+    onSubmit={saveGroup}
   >
-    <div className="admin-work-header">
+    <div className="admin-management-header">
       <div>
-        <span className="admin-panel-kicker">GROUP ADMIN</span>
-        <h3>Staff Group Management</h3>
+        <span className="admin-panel-kicker">
+          {editingGroupId ? "EDIT GROUP" : "CREATE GROUP"}
+        </span>
+
+        <h3>
+          {editingGroupId ? "Edit Staff Group" : "Create Staff Group"}
+        </h3>
+
         <p>
-          Staff group creation and editing still opens in the Staff Groups
-          page for this phase.
+          Select the staff members who should be included in this group.
+        </p>
+      </div>
+
+      {editingGroupId && (
+        <button
+          type="button"
+          className="secondary-btn-sm"
+          onClick={() => {
+            setEditingGroupId(null);
+            setGroupForm({ name: "", members: [] });
+          }}
+        >
+          Cancel Edit
+        </button>
+      )}
+    </div>
+
+    <div className="form-stack">
+      <label className="admin-field-label">
+        Group Name *
+        <input
+          required
+          type="text"
+          placeholder="Example: Office Staff"
+          value={groupForm.name}
+          onChange={(e) =>
+            setGroupForm({ ...groupForm, name: e.target.value })
+          }
+        />
+      </label>
+
+      <div className="admin-group-member-picker">
+        {activeEmployees
+          .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+          .map((employee) => (
+            <label
+              className="admin-group-member-option"
+              key={employee.id}
+            >
+              <input
+                type="checkbox"
+                checked={groupForm.members.includes(employee.name)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setGroupForm({
+                      ...groupForm,
+                      members: [...groupForm.members, employee.name]
+                    });
+                  } else {
+                    setGroupForm({
+                      ...groupForm,
+                      members: groupForm.members.filter(
+                        (member) => member !== employee.name
+                      )
+                    });
+                  }
+                }}
+              />
+
+              <span>
+                <strong>{employee.name}</strong>
+                <small>
+                  {employee.section || "No section"}
+                  {employee.designation
+                    ? ` • ${employee.designation}`
+                    : ""}
+                </small>
+              </span>
+            </label>
+          ))}
+
+        {activeEmployees.length === 0 && (
+          <div className="admin-empty-box">
+            No active staff available.
+          </div>
+        )}
+      </div>
+
+      <div className="admin-group-form-footer">
+        <span>
+          {groupForm.members.length} member
+          {groupForm.members.length === 1 ? "" : "s"} selected
+        </span>
+
+        <button
+          type="submit"
+          className="primary-btn"
+          disabled={isLoading}
+        >
+          {isLoading
+            ? "Saving..."
+            : editingGroupId
+            ? "Update Group"
+            : "Create Group"}
+        </button>
+      </div>
+    </div>
+  </form>
+
+  <div className="admin-work-card admin-management-card">
+    <div className="admin-management-header">
+      <div>
+        <span className="admin-panel-kicker">SAVED GROUPS</span>
+        <h3>Manage Existing Staff Groups</h3>
+        <p>
+          View group members, edit group details or delete unused groups.
         </p>
       </div>
 
       <span className="admin-work-count">
-        {staffGroups.length} staff groups
+        {staffGroups.length} saved
       </span>
     </div>
 
-    <div className="admin-work-card admin-group-overview">
-      <div className="admin-mini-stat">
-        <strong>{staffGroups.length}</strong>
-        <span>Total saved groups</span>
-      </div>
+    <div className="admin-group-admin-list">
+      {[...staffGroups]
+        .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+        .map((group) => (
+          <article
+            className="admin-group-admin-row"
+            key={group.id}
+            onClick={() => openGroupModal(group)}
+          >
+            <div className="admin-group-admin-main">
+              <strong>{group.name}</strong>
 
-      <div className="admin-mini-stat">
-        <strong>{councilEmptyGroups}</strong>
-        <span>Groups without members</span>
-      </div>
+              <small>
+                {group.members?.length || 0} member
+                {(group.members?.length || 0) === 1 ? "" : "s"}
+              </small>
 
-      <button
-        type="button"
-        className="primary-btn"
-        onClick={() => closeSidebarAndGo("groups")}
-      >
-        Open Staff Groups
-      </button>
+              <p>
+                {group.members && group.members.length > 0
+                  ? group.members.join(", ")
+                  : "No members selected"}
+              </p>
+            </div>
+
+            <div className="admin-group-admin-actions">
+              <button
+                type="button"
+                className="secondary-btn-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openGroupModal(group);
+                }}
+              >
+                View
+              </button>
+
+              <button
+                type="button"
+                className="secondary-btn-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  editGroup(group);
+                  openAdminPanelSection("admin-group-section");
+                }}
+              >
+                Edit
+              </button>
+
+              <button
+                type="button"
+                className="text-danger admin-danger-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeGroup(group.id);
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </article>
+        ))}
+
+      {staffGroups.length === 0 && (
+        <div className="admin-empty-box">
+          No staff groups created yet.
+        </div>
+      )}
     </div>
-  </section>
+  </div>
+</section>
 </section>
 
         <section className="admin-next-phase-note">
           <strong>Next Phase</strong>
 
           <p>
-            Staff Registration, Add Leave Record and Holiday Management are now inside
-the Admin Panel. Next, we will move edit/delete/bulk controls from normal
-viewing pages into this Admin Panel.
+            Normal pages are now view-only. Admin Panel is the main place for staff,
+leave, holiday and group management. Admin shortcuts now remember the target
+section and scroll there after unlocking.
           </p>
         </section>
       </>
@@ -6941,283 +7404,6 @@ viewing pages into this Admin Panel.
   </div>
 )}
 
-          {/* ADMIN TAB */}
-          {activeTab === "admin" && (
-            <div className="admin-grid">
-              {/* Wrapped in a Form */}
-              <form className="panel" onSubmit={saveEmployee}>
-                <h2>Staff Registration</h2>
-                <div className="form-stack">
-                  <input
-  required
-  placeholder="Name *"
-  value={empForm.name}
-  onChange={(e) =>
-    setEmpForm({ ...empForm, name: e.target.value })
-  }
-/>
-
-<input
-  type="email"
-  placeholder="Email Address (for Notice Board visibility)"
-  value={empForm.email}
-  onChange={(e) =>
-    setEmpForm({ ...empForm, email: e.target.value })
-  }
-/>
-
-<input
-  placeholder="Designation"
-  value={empForm.designation}
-  onChange={(e) =>
-    setEmpForm({ ...empForm, designation: e.target.value })
-  }
-/>
-                  <input required placeholder="Section (e.g. IT, HR) *" value={empForm.section} onChange={(e) => setEmpForm({ ...empForm, section: e.target.value })} />
-                  <select
-  value={empForm.supervisorId}
-  onChange={(e) =>
-    setEmpForm({
-      ...empForm,
-      supervisorId: e.target.value
-    })
-  }
->
-  <option value="">No Supervisor / Not Assigned</option>
-
-  {[...activeEmployees]
-    .sort((a, b) =>
-      (a.name || "").localeCompare(b.name || "")
-    )
-    .map((employee) => (
-      <option key={employee.id} value={employee.id}>
-        {employee.name}
-        {employee.designation
-          ? ` — ${employee.designation}`
-          : ""}
-      </option>
-    ))}
-</select>
-                  <button type="submit" className="primary-btn" disabled={isLoading}>
-                    {isLoading ? "Saving..." : "Register Staff"}
-                  </button>
-                </div>
-              </form>
-
-              <form className="panel leave-entry-panel" onSubmit={saveLeave}>
-  <div className="leave-entry-header">
-    <div>
-      <span className="leave-entry-kicker">LEAVE MANAGEMENT</span>
-      <h2>Add Leave Record</h2>
-      <p className="muted">
-        Select staff, choose a leave period, or enter the number of working leave days.
-      </p>
-    </div>
-
-    <span className="leave-entry-status-pill">
-      Auto calculates days
-    </span>
-  </div>
-
-  <div className="leave-entry-form">
-    <label className="leave-entry-field full">
-      <span>Staff Member</span>
-
-      <select
-        required
-        value={leaveForm.employee}
-        onChange={(e) =>
-          setLeaveForm({
-            ...leaveForm,
-            employee: e.target.value
-          })
-        }
-      >
-        <option value="">Select employee *</option>
-
-        {activeEmployees.map((emp) => (
-          <option key={emp.id} value={emp.name}>
-            {emp.name}
-          </option>
-        ))}
-      </select>
-    </label>
-
-    <div className="leave-date-grid">
-      <label className="leave-entry-field date-card">
-        <span>Leave Start Date</span>
-
-        <input
-          required
-          type="date"
-          value={leaveForm.start}
-          onChange={(e) => handleLeaveStartChange(e.target.value)}
-        />
-      </label>
-
-      <label className="leave-entry-field date-card">
-        <span>Leave End Date</span>
-
-        <input
-          type="date"
-          value={leaveForm.end}
-          onChange={(e) => handleLeaveEndChange(e.target.value)}
-        />
-      </label>
-    </div>
-
-    <div className="leave-or-divider">
-      <span></span>
-      <strong>OR</strong>
-      <span></span>
-    </div>
-
-    <label className="leave-entry-field full">
-      <span>Number of Leave Days</span>
-
-      <input
-        type="number"
-        min="1"
-        step="1"
-        inputMode="numeric"
-        placeholder="Example: 5"
-        disabled={!leaveForm.start}
-        value={leaveForm.leaveDays}
-        onChange={(e) => handleLeaveDaysChange(e.target.value)}
-      />
-    </label>
-
-    <div className="leave-entry-summary">
-      <div className="leave-summary-row">
-        <span>Total Calendar Days</span>
-        <strong>
-          {leaveForm.start && leaveForm.end
-            ? `${leaveFormSummary.totalCalendarDays} days`
-            : "—"}
-        </strong>
-      </div>
-
-      <div className="leave-summary-row highlight">
-        <span>Number of Leave Days</span>
-        <strong>
-          {leaveForm.start && leaveForm.end
-            ? `${leaveFormSummary.leaveDays} days`
-            : "—"}
-        </strong>
-      </div>
-
-      <p>
-        Fridays, Saturdays and saved public holidays are excluded automatically.
-      </p>
-    </div>
-
-<div className="leave-entry-summary handover-create-box">
-  <div className="leave-summary-row">
-    <span>Work Handover</span>
-    <strong>Optional</strong>
-  </div>
-
-  <p>
-    Select up to 3 staff members who will receive work handover before leave.
-  </p>
-
-  <div className="handover-slot-list">
-    {[0, 1, 2].map((slotIndex) => {
-      const selectedInOtherSlots = leaveForm.workHandoverTo
-        .filter((_, index) => index !== slotIndex)
-        .map((name) => normalizeNoticeName(name))
-        .filter(Boolean);
-
-      return (
-        <label
-          className="handover-modal-label"
-          key={`leave-form-handover-${slotIndex}`}
-        >
-          Handover Staff {slotIndex + 1}
-
-          <select
-            value={leaveForm.workHandoverTo[slotIndex] || ""}
-            onChange={(e) =>
-              updateLeaveFormHandover(slotIndex, e.target.value)
-            }
-          >
-            <option value="">
-              {slotIndex === 0 ? "Not selected" : "Optional"}
-            </option>
-
-            {activeEmployees
-              .filter((employee) => {
-                const employeeName = normalizeNoticeName(employee.name);
-                const leaveOwnerName = normalizeNoticeName(
-                  leaveForm.employee
-                );
-
-                return (
-                  employeeName !== leaveOwnerName &&
-                  !selectedInOtherSlots.includes(employeeName)
-                );
-              })
-              .sort((a, b) =>
-                (a.name || "").localeCompare(b.name || "")
-              )
-              .map((employee) => (
-                <option key={employee.id} value={employee.name}>
-                  {employee.name}
-                  {employee.designation
-                    ? ` — ${employee.designation}`
-                    : ""}
-                </option>
-              ))}
-          </select>
-        </label>
-      );
-    })}
-  </div>
-</div>
-
-    <button
-      type="submit"
-      className="primary-btn leave-save-btn"
-      disabled={isLoading}
-    >
-      {isLoading ? "Saving..." : "Save Leave"}
-    </button>
-  </div>
-</form>
-
-
-              <div className="panel">
-                <form onSubmit={addHoliday}>
-                  <h2>Holiday & Weekend Policy</h2>
-                  <div className="checkbox-group mb-4">
-                    <label><input type="checkbox" checked={settings.excludeFriday} readOnly /> Exclude Fridays</label>
-                    <label><input type="checkbox" checked={settings.excludeSaturday} readOnly /> Exclude Saturdays</label>
-                  </div>
-                  <h3>Add Public Holiday</h3>
-                  <input required type="text" placeholder="Holiday Name *" className="mb-2 mt-2" value={holidayForm.name} onChange={(e) => setHolidayForm({ ...holidayForm, name: e.target.value })} />
-                  <input required type="date" className="mb-2" value={holidayForm.date} onChange={(e) => setHolidayForm({ ...holidayForm, date: e.target.value })} />
-                  <button type="submit" className="primary-btn" disabled={isLoading}>
-                    {isLoading ? "Saving..." : "Add to Calendar"}
-                  </button>
-                </form>
-                
-                {/* NEW: Display Public Holidays so they can be deleted */}
-                <h3 className="mt-4">Saved Holidays</h3>
-                <div className="closest-list mt-2">
-                  {publicHolidays.map((h) => (
-                    <div key={h.id} className="closest-item">
-                      <div>
-                        <strong>{h.name}</strong>
-                        <div className="muted">{h.date}</div>
-                      </div>
-                      <button className="text-danger" style={{background: 'none', border: 'none', cursor: 'pointer', padding: 0}} onClick={() => removeHoliday(h.id)}>Delete</button>
-                    </div>
-                  ))}
-                  {publicHolidays.length === 0 && <p className="muted">No holidays added yet.</p>}
-                </div>
-              </div>
-            </div>
-          )}
 
 {/* DIRECTORY TAB */}
 {activeTab === "directory" && (
@@ -7226,39 +7412,6 @@ viewing pages into this Admin Panel.
     <div className="table-header">
   <h2>Staff Directory</h2>
 
-  <div className="directory-bulk-toolbar">
-    <span className="directory-selection-count">
-      {selectedEmployeeIds.length} selected
-    </span>
-
-    <button
-      type="button"
-      className="secondary-btn-sm"
-      disabled={selectedEmployeeIds.length === 0}
-      onClick={openBulkSupervisorModal}
-    >
-      Change Supervisor
-    </button>
-
-<button
-  type="button"
-  className="secondary-btn-sm"
-  disabled={selectedEmployeeIds.length === 0}
-  onClick={openBulkSectionModal}
->
-  Change Section
-</button>
-
-    {selectedEmployeeIds.length > 0 && (
-      <button
-        type="button"
-        className="directory-clear-selection-btn"
-        onClick={() => setSelectedEmployeeIds([])}
-      >
-        Clear
-      </button>
-    )}
-  </div>
 
   <div className="filter-group">
         <input
@@ -7299,99 +7452,61 @@ viewing pages into this Admin Panel.
       <table className="modern-table">
         <thead>
           <tr>
-  <th className="directory-selection-cell">
-    <input
-      type="checkbox"
-      title="Select all visible staff"
-      checked={allVisibleEmployeesSelected}
-      onChange={toggleAllVisibleEmployees}
-    />
-  </th>
-
   <th>Name</th>
   <th>Email</th>
-<th>Designation</th>
-<th>Section</th>
-<th>Supervisor</th>
-<th>Status</th>
-<th>Action</th>
-          </tr>
+  <th>Designation</th>
+  <th>Section</th>
+  <th>Supervisor</th>
+  <th>Status</th>
+</tr>
         </thead>
 
         <tbody>
           {filteredEmployees.map((e) => (
             <tr key={e.id}>
-  <td className="directory-selection-cell">
-    <input
-      type="checkbox"
-      checked={selectedEmployeeIds.includes(e.id)}
-      onChange={() => toggleDirectoryEmployeeSelection(e.id)}
-    />
+  <td>
+    <button
+      type="button"
+      className="profile-link"
+      onClick={() => openEmployeeProfile(e)}
+    >
+      {e.name}
+    </button>
   </td>
 
   <td>
-    <button
-    type="button"
-    className="profile-link"
-    onClick={() => openEmployeeProfile(e)}
-  >
-    {e.name}
-  </button>
-</td>
+    {e.email ? (
+      e.email
+    ) : (
+      <span className="muted">Not added</span>
+    )}
+  </td>
 
-<td>
-  {e.email ? (
-    e.email
-  ) : (
-    <span className="muted">Not added</span>
-  )}
-</td>
+  <td>{e.designation || "—"}</td>
 
-<td>{e.designation || "—"}</td>
-              <td>
-  <span className="badge">{e.section}</span>
-</td>
-<td>
-  {getSupervisorDisplayName(e) || "—"}
-</td>
-<td>
-  <span className={`badge ${e.status === "inactive" ? "inactive-badge" : "active-badge"}`}>
-    {e.status === "inactive" ? "Inactive" : "Active"}
-  </span>
-</td>
-<td>
-  <div
-  className="action-flex"
-  style={{ flexWrap: "wrap" }}
->
-  <button
-  className="secondary-btn-sm"
-  onClick={() => requestEmployeeEmailAccess(e)}
->
-  {e.email ? "Update Email" : "Add Email"}
-</button>
+  <td>
+    <span className="badge">{e.section || "—"}</span>
+  </td>
 
-  <button
-    className="secondary-btn-sm"
-    onClick={() => toggleEmployeeStatus(e)}
-  >
-    {e.status === "inactive" ? "Activate" : "Deactivate"}
-  </button>
+  <td>{getSupervisorDisplayName(e) || "—"}</td>
 
-  <button
-    className="text-danger"
-    onClick={() => removeEmployee(e.id)}
-  >
-    Delete
-  </button>
-</div>
-</td>
+  <td>
+    <span
+      className={`badge ${
+        e.status === "inactive"
+          ? "inactive-badge"
+          : "active-badge"
+      }`}
+    >
+      {e.status === "inactive" ? "Inactive" : "Active"}
+    </span>
+  </td>
 </tr>
           ))}
 
           {filteredEmployees.length === 0 && (
             <tr>
-              <td colSpan="8" className="muted">
+              <td colSpan="6" className="muted">
                 No staff found.
               </td>
             </tr>
@@ -7560,274 +7675,89 @@ viewing pages into this Admin Panel.
     )}
   </div>
 )}
-{activeTab === "groups" && (
-  <div className="admin-grid groups-page">
-   <div style={{ gridColumn: "1 / -1", marginBottom: "10px" }}>
-  <button
-    className="primary-btn-sm"
-    onClick={() => setShowGroupForm(!showGroupForm)}
-  >
-    {showGroupForm ? "Edit Mode On" : "View Mode"}
-  </button>
-</div>
-    {showGroupForm && (
-  <form className="panel" onSubmit={saveGroup}>
-      <h2>{editingGroupId ? "Edit Staff Group" : "Create Staff Group"}</h2>
-      <div className="form-stack">
-        <input
-          type="text"
-          placeholder="Group name"
-          value={groupForm.name}
-          onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
-        />
 
-        <div className="checkbox-group group-member-list">
-          {employees.map((emp) => (
-            <label key={emp.id}>
-              <input
-                type="checkbox"
-                checked={groupForm.members.includes(emp.name)}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setGroupForm({
-                      ...groupForm,
-                      members: [...groupForm.members, emp.name]
-                    });
-                  } else {
-                    setGroupForm({
-                      ...groupForm,
-                      members: groupForm.members.filter((m) => m !== emp.name)
-                    });
-                  }
-                }}
-              />
-              {" "}{emp.name} {emp.section ? `(${emp.section})` : ""}
-            </label>
-          ))}
+{activeTab === "groups" && (
+  <div className="groups-view-page">
+    <section className="panel full-width">
+      <div className="table-header">
+        <div>
+          <h2>Staff Groups</h2>
+          <p className="muted">
+            View saved staff groups and their members. Group creation,
+            editing and deletion are now handled from the Admin Panel.
+          </p>
         </div>
 
-        <button type="submit" className="primary-btn" disabled={isLoading}>
-          {isLoading ? "Saving..." : editingGroupId ? "Update Group" : "Create Group"}
+        <button
+          type="button"
+          className="primary-btn-sm"
+          onClick={() => openAdminPanelSection("admin-group-section")}
+        >
+          Manage Groups in Admin Panel
         </button>
       </div>
-    </form>
-)}
 
-    <div className="panel">
-      <h2>Saved Staff Groups</h2>
-      <div className="closest-list mt-2">
-        {[...staffGroups].sort((a, b) => (a.name || "").localeCompare(b.name || "")).map((group) => (
-          <div
-             key={group.id}
-             className="closest-item group-card-clickable"
-             style={{ alignItems: "flex-start", cursor: "pointer" }}
-             onClick={() => openGroupModal(group)}
->
-            <div>
-              <strong>
-  {group.name} ({group.members?.length || 0} members)
-</strong>
-              <div className="muted mt-2">
-                {group.members && group.members.length > 0
-                  ? group.members.join(", ")
-                  : "No members"}
+      <div className="groups-view-grid mt-4">
+        {[...staffGroups]
+          .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+          .map((group) => (
+            <article
+              key={group.id}
+              className="groups-view-card"
+              onClick={() => openGroupModal(group)}
+            >
+              <div className="groups-view-card-top">
+                <div>
+                  <span className="admin-panel-kicker">STAFF GROUP</span>
+
+                  <h3>{group.name}</h3>
+                </div>
+
+                <span className="badge">
+                  {group.members?.length || 0} member
+                  {(group.members?.length || 0) === 1 ? "" : "s"}
+                </span>
               </div>
-            </div>
-{showGroupForm && (
-  <div className="btn-group">
-    <button
-      className="secondary-btn-sm"
-      onClick={(e) => {
-        e.stopPropagation();
-        editGroup(group);
-      }}
-    >
-      Edit
-    </button>
 
-    <button
-      className="text-danger"
-      onClick={(e) => {
-        e.stopPropagation();
-        removeGroup(group.id);
-      }}
-    >
-      Delete
-    </button>
-  </div>
-)}
+              <div className="groups-view-members">
+                {group.members && group.members.length > 0 ? (
+                  group.members.slice(0, 8).map((member) => (
+                    <span key={`${group.id}-${member}`}>
+                      {member}
+                    </span>
+                  ))
+                ) : (
+                  <p className="muted">No members selected.</p>
+                )}
+              </div>
+
+              {group.members && group.members.length > 8 && (
+                <small className="muted">
+                  +{group.members.length - 8} more member
+                  {group.members.length - 8 === 1 ? "" : "s"}
+                </small>
+              )}
+
+              <button
+                type="button"
+                className="secondary-btn-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openGroupModal(group);
+                }}
+              >
+                View Members
+              </button>
+            </article>
+          ))}
+
+        {staffGroups.length === 0 && (
+          <div className="admin-empty-box">
+            No staff groups created yet. Use Admin Panel to create groups.
           </div>
-        ))}
-        {staffGroups.length === 0 && <p className="muted">No groups created yet.</p>}
+        )}
       </div>
-    </div>
-  </div>
-)}
-
-{/* LEAVE BY SECTION TAB */}
-{activeTab === "leave-by-section" && (
-  <div className="panel full-width leave-section-page">
-    <div className="table-header">
-      <div>
-        <h2>Leave by Section</h2>
-        <p className="muted">
-  Showing up to 40 leave records from the selected date point,
-  with section, supervisor and staff name filters.
-</p>
-      </div>
-
-      <div className="filter-group">
-  <input
-    type="date"
-    value={leaveBySectionDate}
-    onChange={(e) => setLeaveBySectionDate(e.target.value)}
-  />
-
-  <button
-    type="button"
-    className="secondary-btn-sm"
-    onClick={() => setLeaveBySectionDate(getMaldivesDateString())}
-  >
-    Today
-  </button>
-
-  <select
-    value={leaveBySectionFilter}
-    onChange={(e) => setLeaveBySectionFilter(e.target.value)}
-  >
-    <option value="">All Sections</option>
-
-    {leaveBySectionOptions.map((section) => (
-      <option key={section} value={section}>
-        {section}
-      </option>
-    ))}
-  </select>
-
-  <select
-    value={leaveBySectionSupervisorFilter}
-    onChange={(e) =>
-      setLeaveBySectionSupervisorFilter(e.target.value)
-    }
-  >
-    <option value="">All Supervisors</option>
-
-    {leaveBySectionSupervisorOptions.map((supervisor) => (
-      <option key={supervisor} value={supervisor}>
-        {supervisor}
-      </option>
-    ))}
-  </select>
-
-<select
-  value={leaveBySectionHandoverFilter}
-  onChange={(e) =>
-    setLeaveBySectionHandoverFilter(e.target.value)
-  }
->
-  <option value="all">All Handovers</option>
-  <option value="done">Handover Done</option>
-  <option value="missing">Handover Missing</option>
-</select>
-
-  <input
-    type="text"
-    placeholder="Search staff name..."
-    value={leaveBySectionSearch}
-    onChange={(e) => setLeaveBySectionSearch(e.target.value)}
-  />
-
-  <button className="refresh-btn" onClick={refreshData}>
-    Refresh
-  </button>
-</div>
-    </div>
-
-    <div className="closest-item leave-section-summary">
-      <div>
-        <strong>Upcoming leave records from selected date</strong>
-        <div className="muted">
-          {leaveBySectionFilter
-  ? `Filtered by section: ${leaveBySectionFilter} • From ${selectedLeaveBySectionDate}`
-  : `Showing all sections • From ${selectedLeaveBySectionDate}`}
-        </div>
-      </div>
-
-      <span className="badge">
-        {leaveBySectionRecords.length} shown
-      </span>
-    </div>
-
-    <div className="closest-list mt-4">
-      {leaveBySectionRecords.map((leave) => (
-  <div key={leave.id} className="closest-item leave-section-card handover-leave-card">
-    <div className="closest-info">
-      <strong>{leave.employee}</strong>
-
-      <span>
-        {leave.start} to {leave.end}
-      </span>
-
-      <span className="muted">
-        {leave.designation || "No designation"}
-      </span>
-
-      <span className="muted">
-        Supervisor: {leave.supervisor}
-      </span>
-    </div>
-
-    <div className="handover-column">
-      <span className="handover-label">
-        Work Handover
-      </span>
-
-      {leave.handoverTo.length > 0 ? (
-  <div className="handover-name-list">
-    {leave.handoverTo.map((staffName, index) => (
-      <strong
-        className="handover-name"
-        key={`${leave.id}-handover-${index}`}
-      >
-        {staffName}
-      </strong>
-    ))}
-  </div>
-) : (
-  <span className="handover-empty">
-    Not selected
-  </span>
-)}
-    </div>
-
-    <div className="leave-section-actions">
-      <span className="badge">
-        {leave.section}
-      </span>
-
-      <span className="closest-tag">
-        {calculateLeaveDays(leave.start, leave.end)} days
-      </span>
-
-
-
-      <button
-        type="button"
-        className="secondary-btn-sm handover-btn"
-        onClick={() => openWorkHandoverModal(leave)}
-      >
-        Work Handover
-      </button>
-    </div>
-  </div>
-))}
-
-      {leaveBySectionRecords.length === 0 && (
-        <p className="muted leave-section-empty">
-          No upcoming leave records found after the selected date.
-        </p>
-      )}
-    </div>
+    </section>
   </div>
 )}
 
@@ -7934,6 +7864,177 @@ viewing pages into this Admin Panel.
 </div>
   </div>
 )}
+
+{/* LEAVE BY SECTION TAB */}
+{activeTab === "leave-by-section" && (
+  <div className="panel full-width leave-section-page">
+    <div className="table-header">
+      <div>
+        <h2>Leave by Section</h2>
+
+        <p className="muted">
+          Showing up to 40 leave records from the selected date point,
+          with section, supervisor and staff name filters.
+        </p>
+      </div>
+
+      <div className="filter-group">
+        <input
+          type="date"
+          value={leaveBySectionDate}
+          onChange={(e) => setLeaveBySectionDate(e.target.value)}
+        />
+
+        <button
+          type="button"
+          className="secondary-btn-sm"
+          onClick={() => setLeaveBySectionDate(getMaldivesDateString())}
+        >
+          Today
+        </button>
+
+        <select
+          value={leaveBySectionFilter}
+          onChange={(e) => setLeaveBySectionFilter(e.target.value)}
+        >
+          <option value="">All Sections</option>
+
+          {leaveBySectionOptions.map((section) => (
+            <option key={section} value={section}>
+              {section}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={leaveBySectionSupervisorFilter}
+          onChange={(e) =>
+            setLeaveBySectionSupervisorFilter(e.target.value)
+          }
+        >
+          <option value="">All Supervisors</option>
+
+          {leaveBySectionSupervisorOptions.map((supervisor) => (
+            <option key={supervisor} value={supervisor}>
+              {supervisor}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={leaveBySectionHandoverFilter}
+          onChange={(e) =>
+            setLeaveBySectionHandoverFilter(e.target.value)
+          }
+        >
+          <option value="all">All Handovers</option>
+          <option value="done">Handover Done</option>
+          <option value="missing">Handover Missing</option>
+        </select>
+
+        <input
+          type="text"
+          placeholder="Search staff name..."
+          value={leaveBySectionSearch}
+          onChange={(e) => setLeaveBySectionSearch(e.target.value)}
+        />
+
+        <button className="refresh-btn" onClick={refreshData}>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <div className="closest-item leave-section-summary">
+      <div>
+        <strong>Upcoming leave records from selected date</strong>
+
+        <div className="muted">
+          {leaveBySectionFilter
+            ? `Filtered by section: ${leaveBySectionFilter} • From ${selectedLeaveBySectionDate}`
+            : `Showing all sections • From ${selectedLeaveBySectionDate}`}
+        </div>
+      </div>
+
+      <span className="badge">
+        {leaveBySectionRecords.length} shown
+      </span>
+    </div>
+
+    <div className="closest-list mt-4">
+      {leaveBySectionRecords.map((leave) => (
+        <div
+          key={leave.id}
+          className="closest-item leave-section-card handover-leave-card"
+        >
+          <div className="closest-info">
+            <strong>{leave.employee}</strong>
+
+            <span>
+              {leave.start} to {leave.end}
+            </span>
+
+            <span className="muted">
+              {leave.designation || "No designation"}
+            </span>
+
+            <span className="muted">
+              Supervisor: {leave.supervisor}
+            </span>
+          </div>
+
+          <div className="handover-column">
+            <span className="handover-label">
+              Work Handover
+            </span>
+
+            {leave.handoverTo.length > 0 ? (
+              <div className="handover-name-list">
+                {leave.handoverTo.map((staffName, index) => (
+                  <strong
+                    className="handover-name"
+                    key={`${leave.id}-handover-${index}`}
+                  >
+                    {staffName}
+                  </strong>
+                ))}
+              </div>
+            ) : (
+              <span className="handover-empty">
+                Not selected
+              </span>
+            )}
+          </div>
+
+          <div className="leave-section-actions">
+            <span className="badge">
+              {leave.section}
+            </span>
+
+            <span className="closest-tag">
+              {calculateLeaveDays(leave.start, leave.end)} days
+            </span>
+
+            <button
+              type="button"
+              className="secondary-btn-sm handover-btn"
+              onClick={() => openWorkHandoverModal(leave)}
+            >
+              Work Handover
+            </button>
+          </div>
+        </div>
+      ))}
+
+      {leaveBySectionRecords.length === 0 && (
+        <p className="muted leave-section-empty">
+          No upcoming leave records found after the selected date.
+        </p>
+      )}
+    </div>
+  </div>
+)}
+
 {/* PRESENCE BOARD TAB */}
 {activeTab === "presence-board" && (
     <div className={`panel full-width ${isTvMode ? "tv-mode-board" : ""}`}>
@@ -8938,11 +9039,11 @@ Unlock Hukuru 2026
     />
 
     <button
-      className="primary-btn-sm"
-      onClick={() => openAdminPanelSection("admin-leave-section")}
-    >
-      + Add New Leave
-    </button>
+  className="primary-btn-sm"
+  onClick={() => openAdminPanelSection("admin-leave-section")}
+>
+  Manage Leaves in Admin Panel
+</button>
   </div>
 </div>
               <div className="table-container">
@@ -8963,28 +9064,13 @@ Unlock Hukuru 2026
   <td>{calculateLeaveDays(l.start, l.end)}</td>
   <td>
     <div className="action-flex">
-      <button
-        className="secondary-btn-sm mr-2"
-        onClick={() => viewOverlaps(l)}
-      >
-        Check Overlaps
-      </button>
-
-<button
-  className="secondary-btn-sm mr-2"
-  onClick={() => openEditLeaveModal(l)}
->
-  Edit
-</button>
-
-      <button
-        className="text-danger"
-        style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
-        onClick={() => removeLeave(l.id)}
-      >
-        Delete
-      </button>
-    </div>
+  <button
+    className="secondary-btn-sm mr-2"
+    onClick={() => viewOverlaps(l)}
+  >
+    Check Overlaps
+  </button>
+</div>
   </td>
 </tr>
                     ))}

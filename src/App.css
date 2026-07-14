@@ -8660,3 +8660,455 @@ select:disabled {
     width: 100%;
   }
 }
+
+/* ======================================
+   ADMIN PANEL PHASE 3A - MANAGEMENT LISTS
+====================================== */
+
+.admin-management-card {
+  margin-top: 14px;
+}
+
+.admin-management-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.admin-management-header h3 {
+  margin: 5px 0;
+  color: #0f172a;
+  font-size: 1.05rem;
+}
+
+.admin-management-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.admin-management-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) minmax(160px, 1fr) minmax(160px, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.admin-management-toolbar input,
+.admin-management-toolbar select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 850;
+  outline: none;
+}
+
+.admin-management-toolbar input:focus,
+.admin-management-toolbar select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.admin-bulk-toolbar {
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 16px;
+  background: #f8fbff;
+}
+
+.admin-staff-admin-list,
+.admin-leave-admin-list {
+  display: grid;
+  gap: 10px;
+  max-height: 540px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.admin-staff-admin-row,
+.admin-leave-admin-row {
+  display: grid;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.admin-staff-admin-row {
+  grid-template-columns: auto minmax(180px, 1fr) auto minmax(260px, auto);
+}
+
+.admin-leave-admin-row {
+  grid-template-columns: minmax(220px, 1fr) auto;
+}
+
+.admin-staff-select {
+  display: grid;
+  place-items: center;
+}
+
+.admin-staff-select input {
+  width: 18px;
+  height: 18px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.admin-staff-admin-main,
+.admin-leave-admin-main {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-staff-admin-main strong,
+.admin-leave-admin-main strong,
+.admin-staff-admin-main .profile-link {
+  color: #0f172a;
+  font-size: 0.92rem;
+  font-weight: 950;
+}
+
+.admin-staff-admin-main small,
+.admin-leave-admin-main small {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.admin-staff-admin-status {
+  display: flex;
+  justify-content: center;
+}
+
+.admin-staff-admin-actions,
+.admin-leave-admin-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-danger-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-weight: 950;
+}
+
+.admin-empty-box {
+  padding: 18px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  background: #f8fafc;
+  color: #64748b;
+  font-weight: 850;
+  text-align: center;
+}
+
+@media (max-width: 980px) {
+  .admin-management-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-staff-admin-row,
+  .admin-leave-admin-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-staff-select {
+    justify-content: flex-start;
+  }
+
+  .admin-staff-admin-status,
+  .admin-staff-admin-actions,
+  .admin-leave-admin-actions {
+    justify-content: stretch;
+  }
+
+  .admin-staff-admin-actions button,
+  .admin-leave-admin-actions button {
+    width: 100%;
+  }
+
+  .admin-management-header {
+    flex-direction: column;
+  }
+}
+
+/* ======================================
+   ADMIN PANEL PHASE 4 - GROUP MANAGEMENT
+====================================== */
+
+.admin-group-form-card {
+  margin-bottom: 14px;
+}
+
+.admin-group-member-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.admin-group-member-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.admin-group-member-option input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: #2563eb;
+}
+
+.admin-group-member-option span {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-group-member-option strong {
+  color: #0f172a;
+  font-size: 0.86rem;
+  font-weight: 950;
+}
+
+.admin-group-member-option small {
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.admin-group-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.admin-group-form-footer span {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.admin-group-admin-list {
+  display: grid;
+  gap: 10px;
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.admin-group-admin-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 15px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.admin-group-admin-row:hover {
+  border-color: #bfdbfe;
+  background: #ffffff;
+}
+
+.admin-group-admin-main {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-group-admin-main strong {
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 950;
+}
+
+.admin-group-admin-main small {
+  color: #2563eb;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.admin-group-admin-main p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.admin-group-admin-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 760px) {
+  .admin-group-member-picker {
+    grid-template-columns: 1fr;
+    max-height: 360px;
+  }
+
+  .admin-group-form-footer,
+  .admin-group-admin-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-group-form-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-group-admin-actions,
+  .admin-group-admin-actions button {
+    width: 100%;
+  }
+}
+
+/* ======================================
+   STAFF GROUPS VIEW-ONLY PAGE
+====================================== */
+
+.groups-view-page {
+  display: grid;
+  gap: 18px;
+  width: 100%;
+}
+
+.groups-view-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.groups-view-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #dbeafe;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 32%),
+    #ffffff;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.07);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.groups-view-card:hover {
+  transform: translateY(-2px);
+  border-color: #93c5fd;
+  box-shadow: 0 18px 38px rgba(30, 64, 175, 0.13);
+}
+
+.groups-view-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.groups-view-card h3 {
+  margin: 5px 0 0;
+  color: #0f172a;
+  font-size: 1.05rem;
+}
+
+.groups-view-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.groups-view-members span {
+  display: inline-flex;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+@media (max-width: 760px) {
+  .groups-view-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .groups-view-card-top {
+    flex-direction: column;
+  }
+
+  .groups-view-card .badge,
+  .groups-view-card button {
+    width: 100%;
+  }
+}
+
+/* ======================================
+   LARGER HOME CALENDAR DATE NUMBERS
+====================================== */
+
+.cal-date-number {
+  font-size: 1.35rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.cal-day {
+  font-size: 1rem;
+}
+
+.cal-today .cal-date-number {
+  font-size: 1.45rem;
+}
+
+.cal-day .cal-holiday-name {
+  font-size: 0.62rem;
+  font-weight: 850;
+}
+
+/* Mobile */
+@media (max-width: 760px) {
+  .cal-date-number {
+    font-size: 1.05rem;
+  }
+
+  .cal-today .cal-date-number {
+    font-size: 1.15rem;
+  }
+
+  .cal-day .cal-holiday-name {
+    font-size: 0.55rem;
+  }
+}
