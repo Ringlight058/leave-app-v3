@@ -149,7 +149,7 @@ function App() {
   getMaldivesDateString()
 );
   const [handoverModal, setHandoverModal] = useState(null);
-  const [handoverStaffList, setHandoverStaffList] = useState(["", "", ""]);
+  const [handoverStaffList, setHandoverStaffList] = useState(["", "", "", ""]);
   const [editLeaveModal, setEditLeaveModal] = useState(null);
 
   const [editLeaveForm, setEditLeaveForm] = useState({
@@ -157,7 +157,7 @@ function App() {
   start: "",
   end: "",
   leaveDays: "",
-  workHandoverTo: ["", "", ""]
+  workHandoverTo: ["", "", "", ""]
 });
 
   const [editLeavePinInput, setEditLeavePinInput] = useState("");
@@ -191,6 +191,9 @@ function App() {
   const [employeeEmailModal, setEmployeeEmailModal] = useState(null);
   const [employeeEmailInput, setEmployeeEmailInput] = useState("");
   const [buildInfoOpen, setBuildInfoOpen] = useState(false);
+
+  const [adminPanelUnlocked, setAdminPanelUnlocked] = useState(false);
+  const [adminPanelPassword, setAdminPanelPassword] = useState("");
 
   const [employeeEmailPinModal, setEmployeeEmailPinModal] = useState(null);
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
@@ -240,6 +243,24 @@ const openConfirmModal = ({ title, message, confirmText = "Delete", onConfirm })
 const closeConfirmModal = () => {
   setConfirmModal(null);
 };
+
+const unlockAdminPanel = () => {
+  if (adminPanelPassword !== "Admin@123") {
+    showToast("Incorrect Admin Panel password.", "error");
+    return;
+  }
+
+  setAdminPanelUnlocked(true);
+  setAdminPanelPassword("");
+  showToast("Admin Panel unlocked.");
+};
+
+const lockAdminPanel = () => {
+  setAdminPanelUnlocked(false);
+  setAdminPanelPassword("");
+  showToast("Admin Panel locked.");
+};
+
 useEffect(() => {
   const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
     setUser(currentUser);
@@ -268,8 +289,11 @@ const handleLogin = async (e) => {
 };
 
 const handleLogout = async () => {
+  setAdminPanelUnlocked(false);
+  setAdminPanelPassword("");
   await signOut(auth);
 };
+
 const provider = new GoogleAuthProvider();
 
 const handleGoogleLogin = async () => {
@@ -960,7 +984,7 @@ const [overviewYaumiyyaRecord, setOverviewYaumiyyaRecord] = useState({
   start: "",
   end: "",
   leaveDays: "",
-  workHandoverTo: ["", "", ""]
+  workHandoverTo: ["", "", "", ""]
 });
 
 
@@ -1077,10 +1101,28 @@ useEffect(() => {
       easing: "outExpo"
     });
   }
-}, [isSidebarOpen]);const closeSidebarAndGo = (tab) => {
-    setActiveTab(tab);
-    setIsSidebarOpen(false);
-  };
+}, [isSidebarOpen]);
+
+const closeSidebarAndGo = (tab) => {
+  setActiveTab(tab);
+  setIsSidebarOpen(false);
+};
+
+const openAdminPanelSection = (sectionId = "") => {
+  setActiveTab("admin-panel");
+  setIsSidebarOpen(false);
+
+  if (sectionId) {
+    setTimeout(() => {
+      document.getElementById(sectionId)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }, 160);
+  }
+};
+
+
 const getFunadhooTime = () => {
   return new Date().toLocaleTimeString("en-GB", {
     timeZone: "Indian/Maldives",
@@ -2474,8 +2516,9 @@ const getSelectedHandoverStaff = (handoverList = []) => {
   return handoverList
     .map((name) => (name || "").trim())
     .filter(Boolean)
-    .slice(0, 3);
+    .slice(0, 4);
 };
+
 
 const getStaffLeaveOverlaps = (
   staffName,
@@ -2600,6 +2643,7 @@ const saveLeave = async (e) => {
     return alert("Please select different staff members for each handover slot.");
   }
 
+
   if (
     selectedHandoverStaff.some(
       (name) =>
@@ -2658,7 +2702,7 @@ const saveLeave = async (e) => {
       start: "",
       end: "",
       leaveDays: "",
-      workHandoverTo: ["", "", ""]
+      workHandoverTo: ["", "", "", ""]
     });
 
     showToast("Leave record added successfully.");
@@ -2682,10 +2726,11 @@ const openEditLeaveModal = (leave) => {
     end: leave.end || "",
     leaveDays: "",
     workHandoverTo: [
-      savedHandover[0] || "",
-      savedHandover[1] || "",
-      savedHandover[2] || ""
-    ]
+  savedHandover[0] || "",
+  savedHandover[1] || "",
+  savedHandover[2] || "",
+  savedHandover[3] || ""
+]
   });
 };
 
@@ -2698,7 +2743,7 @@ const closeEditLeaveModal = () => {
     start: "",
     end: "",
     leaveDays: "",
-    workHandoverTo: ["", "", ""]
+    workHandoverTo: ["", "", "", ""]
   });
 };
 
@@ -3603,7 +3648,10 @@ const leaveBySectionSupervisorOptions = [
 
 const normalizeHandoverList = (value) => {
   if (Array.isArray(value)) {
-    return value.filter(Boolean).slice(0, 3);
+    return value
+      .map((name) => (name || "").trim())
+      .filter(Boolean)
+      .slice(0, 4);
   }
 
   if (typeof value === "string" && value.trim()) {
@@ -3612,6 +3660,7 @@ const normalizeHandoverList = (value) => {
 
   return [];
 };
+
 
 const selectedLeaveBySectionDate =
   leaveBySectionDate || getMaldivesDateString();
@@ -3680,17 +3729,18 @@ const openWorkHandoverModal = (leave) => {
   );
 
   setHandoverModal(leave);
-  setHandoverStaffList([
-    savedList[0] || "",
-    savedList[1] || "",
-    savedList[2] || ""
-  ]);
-};
+setHandoverStaffList([
+  savedList[0] || "",
+  savedList[1] || "",
+  savedList[2] || "",
+  savedList[3] || ""
+]);};
 
 const closeWorkHandoverModal = () => {
   setHandoverModal(null);
-  setHandoverStaffList(["", "", ""]);
+  setHandoverStaffList(["", "", "", ""]);
 };
+
 
 const updateHandoverStaff = (index, value) => {
   setHandoverStaffList((previous) => {
@@ -4569,6 +4619,37 @@ const presenceStats = employees.reduce(
   }
 );
 
+const adminPanelCards = [
+  {
+    title: "Staff Admin",
+    value: activeEmployees.length,
+    detail: "Active staff currently in the system",
+    icon: "👥",
+    sectionId: "admin-staff-section"
+  },
+  {
+    title: "Leave Admin",
+    value: leaves.length,
+    detail: "Total leave records saved",
+    icon: "📄",
+    sectionId: "admin-leave-section"
+  },
+  {
+    title: "Holiday Admin",
+    value: publicHolidays.length,
+    detail: "Public holidays used for leave calculations",
+    icon: "📅",
+    sectionId: "admin-holiday-section"
+  },
+  {
+    title: "Group Admin",
+    value: staffGroups.length,
+    detail: "Saved staff groups",
+    icon: "◫",
+    sectionId: "admin-group-section"
+  }
+];
+
 if (!authChecked) {
   return (
     <div className="login-page">
@@ -4687,12 +4768,6 @@ return (
     Staff Groups
   </li>
 
-  <li
-    className={activeTab === "admin" ? "active" : ""}
-    onClick={() => closeSidebarAndGo("admin")}
-  >
-    Staff Setup
-  </li>
 
   <li className="nav-label">Leave Management</li>
 
@@ -4777,7 +4852,16 @@ return (
     Friday Prayer Schedule
   </li>
 
-  <li className="nav-label">Reports</li>
+  <li className="nav-label">Administration</li>
+
+<li
+  className={activeTab === "admin-panel" ? "active" : ""}
+  onClick={() => closeSidebarAndGo("admin-panel")}
+>
+  Admin Panel
+</li>
+
+<li className="nav-label">Reports</li>
 
   <li
     className={activeTab === "reports" ? "active" : ""}
@@ -6145,7 +6229,7 @@ return (
         <div className="council-actions-grid">
           <button
             type="button"
-            onClick={() => closeSidebarAndGo("admin")}
+            onClick={() => openAdminPanelSection("admin-leave-section")}
           >
             <span>+</span>
             Add Leave Record
@@ -6195,6 +6279,668 @@ return (
     </div>
   </div>
 )}
+
+{/* ADMIN PANEL TAB */}
+{activeTab === "admin-panel" && (
+  <div className="admin-panel-page">
+    {!adminPanelUnlocked ? (
+      <section className="admin-panel-lock-card">
+        <div className="admin-panel-lock-icon">🛡️</div>
+
+        <span className="admin-panel-kicker">RESTRICTED AREA</span>
+
+        <h2>Admin Panel Access</h2>
+
+        <p>
+          Enter the admin password to manage system setup shortcuts,
+          staff controls, leave administration, holidays and groups.
+        </p>
+
+        <div className="admin-panel-lock-form">
+          <input
+            type="password"
+            placeholder="Enter Admin Panel password"
+            value={adminPanelPassword}
+            onChange={(e) => setAdminPanelPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                unlockAdminPanel();
+              }
+            }}
+          />
+
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={unlockAdminPanel}
+          >
+            Unlock Admin Panel
+          </button>
+        </div>
+
+        <small>
+          Admin Panel now includes Staff Registration, Add Leave Record and
+Holiday Management.
+        </small>
+      </section>
+    ) : (
+      <>
+        <section className="admin-panel-hero">
+          <div>
+            <span className="admin-panel-kicker">
+              FUNADHOO COUNCIL
+            </span>
+
+            <h2>Admin Panel</h2>
+
+            <p>
+              Restricted control center for managing staff setup, leave
+              records, public holidays and staff groups.
+            </p>
+          </div>
+
+          <div className="admin-panel-hero-actions">
+            <span className="admin-unlocked-badge">
+              ✓ Admin Unlocked
+            </span>
+
+            <button
+              type="button"
+              className="secondary-btn-sm"
+              onClick={refreshData}
+            >
+              Refresh
+            </button>
+
+            <button
+              type="button"
+              className="confirm-cancel"
+              onClick={lockAdminPanel}
+            >
+              Lock
+            </button>
+          </div>
+        </section>
+
+        <section className="admin-quick-actions">
+          <button
+  type="button"
+  onClick={() => openAdminPanelSection("admin-staff-section")}
+>
+  <span>＋</span>
+  Add Staff
+</button>
+
+<button
+  type="button"
+  onClick={() => openAdminPanelSection("admin-leave-section")}
+>
+  <span>＋</span>
+  Add Leave
+</button>
+
+<button
+  type="button"
+  onClick={() => openAdminPanelSection("admin-holiday-section")}
+>
+  <span>＋</span>
+  Add Holiday
+</button>
+
+          <button
+            type="button"
+            onClick={() => closeSidebarAndGo("groups")}
+          >
+            <span>◫</span>
+            Create Group
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowNoticeAdminPanel(true);
+              closeSidebarAndGo("notice-board");
+            }}
+          >
+            <span>📌</span>
+            Notice Admin
+          </button>
+
+          <button
+            type="button"
+            onClick={() => closeSidebarAndGo("reports")}
+          >
+            <span>⇩</span>
+            Reports
+          </button>
+        </section>
+
+        <section className="admin-panel-summary-grid">
+          {adminPanelCards.map((card) => (
+            <article
+              className="admin-panel-summary-card"
+              key={card.title}
+              onClick={() => openAdminPanelSection(card.sectionId)}
+            >
+              <div className="admin-panel-summary-icon">
+                {card.icon}
+              </div>
+
+              <div>
+                <span>{card.title}</span>
+
+                <strong>{card.value}</strong>
+
+                <small>{card.detail}</small>
+              </div>
+            </article>
+          ))}
+        </section>
+
+        <section className="admin-work-grid">
+  <section
+    id="admin-staff-section"
+    className="admin-work-section"
+  >
+    <div className="admin-work-header">
+      <div>
+        <span className="admin-panel-kicker">STAFF ADMIN</span>
+        <h3>Staff Registration</h3>
+        <p>
+          Register new staff with email, designation, section and supervisor.
+        </p>
+      </div>
+
+      <span className="admin-work-count">
+        {activeEmployees.length} active staff
+      </span>
+    </div>
+
+    <form className="admin-work-card" onSubmit={saveEmployee}>
+      <div className="form-stack">
+        <label className="admin-field-label">
+          Name *
+          <input
+            required
+            placeholder="Staff name"
+            value={empForm.name}
+            onChange={(e) =>
+              setEmpForm({ ...empForm, name: e.target.value })
+            }
+          />
+        </label>
+
+        <label className="admin-field-label">
+          Email Address
+          <input
+            type="email"
+            placeholder="Email for Notice Board visibility"
+            value={empForm.email}
+            onChange={(e) =>
+              setEmpForm({ ...empForm, email: e.target.value })
+            }
+          />
+        </label>
+
+        <div className="admin-two-col">
+          <label className="admin-field-label">
+            Designation
+            <input
+              placeholder="Designation"
+              value={empForm.designation}
+              onChange={(e) =>
+                setEmpForm({
+                  ...empForm,
+                  designation: e.target.value
+                })
+              }
+            />
+          </label>
+
+          <label className="admin-field-label">
+            Section *
+            <input
+              required
+              placeholder="Example: IT, Admin, Finance"
+              value={empForm.section}
+              onChange={(e) =>
+                setEmpForm({
+                  ...empForm,
+                  section: e.target.value
+                })
+              }
+            />
+          </label>
+        </div>
+
+        <label className="admin-field-label">
+          Supervisor
+          <select
+            value={empForm.supervisorId}
+            onChange={(e) =>
+              setEmpForm({
+                ...empForm,
+                supervisorId: e.target.value
+              })
+            }
+          >
+            <option value="">No Supervisor / Not Assigned</option>
+
+            {[...activeEmployees]
+              .sort((a, b) =>
+                (a.name || "").localeCompare(b.name || "")
+              )
+              .map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.name}
+                  {employee.designation
+                    ? ` — ${employee.designation}`
+                    : ""}
+                </option>
+              ))}
+          </select>
+        </label>
+
+        <button
+          type="submit"
+          className="primary-btn"
+          disabled={isLoading}
+        >
+          {isLoading ? "Saving..." : "Register Staff"}
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section
+    id="admin-leave-section"
+    className="admin-work-section"
+  >
+    <div className="admin-work-header">
+      <div>
+        <span className="admin-panel-kicker">LEAVE ADMIN</span>
+        <h3>Add Leave Record</h3>
+        <p>
+          Add leave records with automatic working-day calculation and work
+          handover details.
+        </p>
+      </div>
+
+      <span className="admin-work-count">
+        {leaves.length} leave records
+      </span>
+    </div>
+
+    <form
+      className="admin-work-card leave-entry-panel"
+      onSubmit={saveLeave}
+    >
+      <div className="leave-entry-form">
+        <label className="leave-entry-field full">
+          <span>Staff Member</span>
+
+          <select
+            required
+            value={leaveForm.employee}
+            onChange={(e) =>
+              setLeaveForm({
+                ...leaveForm,
+                employee: e.target.value
+              })
+            }
+          >
+            <option value="">Select employee *</option>
+
+            {activeEmployees.map((emp) => (
+              <option key={emp.id} value={emp.name}>
+                {emp.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="leave-date-grid">
+          <label className="leave-entry-field date-card">
+            <span>Leave Start Date</span>
+
+            <input
+              required
+              type="date"
+              value={leaveForm.start}
+              onChange={(e) =>
+                handleLeaveStartChange(e.target.value)
+              }
+            />
+          </label>
+
+          <label className="leave-entry-field date-card">
+            <span>Leave End Date</span>
+
+            <input
+              type="date"
+              value={leaveForm.end}
+              onChange={(e) =>
+                handleLeaveEndChange(e.target.value)
+              }
+            />
+          </label>
+        </div>
+
+        <div className="leave-or-divider">
+          <span></span>
+          <strong>OR</strong>
+          <span></span>
+        </div>
+
+        <label className="leave-entry-field full">
+          <span>Number of Leave Days</span>
+
+          <input
+            type="number"
+            min="1"
+            step="1"
+            inputMode="numeric"
+            placeholder="Example: 5"
+            disabled={!leaveForm.start}
+            value={leaveForm.leaveDays}
+            onChange={(e) =>
+              handleLeaveDaysChange(e.target.value)
+            }
+          />
+        </label>
+
+        <div className="leave-entry-summary">
+          <div className="leave-summary-row">
+            <span>Total Calendar Days</span>
+
+            <strong>
+              {leaveForm.start && leaveForm.end
+                ? `${leaveFormSummary.totalCalendarDays} days`
+                : "—"}
+            </strong>
+          </div>
+
+          <div className="leave-summary-row highlight">
+            <span>Number of Leave Days</span>
+
+            <strong>
+              {leaveForm.start && leaveForm.end
+                ? `${leaveFormSummary.leaveDays} days`
+                : "—"}
+            </strong>
+          </div>
+
+          <p>
+            Fridays, Saturdays and saved public holidays are excluded
+            automatically.
+          </p>
+        </div>
+
+        <div className="leave-entry-summary handover-create-box">
+          <div className="leave-summary-row">
+            <span>Work Handover</span>
+            <strong>Optional</strong>
+          </div>
+
+          <p>
+            Select up to 3 staff members and add 1 custom handover name.
+          </p>
+
+          <div className="handover-slot-list">
+            {[0, 1, 2].map((slotIndex) => {
+              const selectedInOtherSlots =
+                leaveForm.workHandoverTo
+                  .filter(
+                    (_, index) =>
+                      index !== slotIndex && index < 3
+                  )
+                  .map((name) => normalizeNoticeName(name))
+                  .filter(Boolean);
+
+              return (
+                <label
+                  className="handover-modal-label"
+                  key={`leave-form-handover-${slotIndex}`}
+                >
+                  Handover Staff {slotIndex + 1}
+
+                  <select
+                    value={
+                      leaveForm.workHandoverTo[slotIndex] || ""
+                    }
+                    onChange={(e) =>
+                      updateLeaveFormHandover(
+                        slotIndex,
+                        e.target.value
+                      )
+                    }
+                  >
+                    <option value="">
+                      {slotIndex === 0
+                        ? "Not selected"
+                        : "Optional"}
+                    </option>
+
+                    {activeEmployees
+                      .filter((employee) => {
+                        const employeeName =
+                          normalizeNoticeName(employee.name);
+
+                        const leaveOwnerName =
+                          normalizeNoticeName(leaveForm.employee);
+
+                        return (
+                          employeeName !== leaveOwnerName &&
+                          !selectedInOtherSlots.includes(employeeName)
+                        );
+                      })
+                      .sort((a, b) =>
+                        (a.name || "").localeCompare(b.name || "")
+                      )
+                      .map((employee) => (
+                        <option
+                          key={employee.id}
+                          value={employee.name}
+                        >
+                          {employee.name}
+                          {employee.designation
+                            ? ` — ${employee.designation}`
+                            : ""}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              );
+            })}
+
+            <label className="handover-modal-label">
+              Custom Handover 4
+
+              <input
+                type="text"
+                placeholder="Enter custom handover name"
+                value={leaveForm.workHandoverTo[3] || ""}
+                onChange={(e) =>
+                  updateLeaveFormHandover(3, e.target.value)
+                }
+              />
+            </label>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          className="primary-btn leave-save-btn"
+          disabled={isLoading}
+        >
+          {isLoading ? "Saving..." : "Save Leave"}
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section
+    id="admin-holiday-section"
+    className="admin-work-section"
+  >
+    <div className="admin-work-header">
+      <div>
+        <span className="admin-panel-kicker">HOLIDAY ADMIN</span>
+        <h3>Holiday Management</h3>
+        <p>
+          Manage public holidays used when calculating leave days.
+        </p>
+      </div>
+
+      <span className="admin-work-count">
+        {publicHolidays.length} saved holidays
+      </span>
+    </div>
+
+    <div className="admin-work-card">
+      <form onSubmit={addHoliday} className="form-stack">
+        <div className="checkbox-group mb-4">
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.excludeFriday}
+              readOnly
+            />{" "}
+            Exclude Fridays
+          </label>
+
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.excludeSaturday}
+              readOnly
+            />{" "}
+            Exclude Saturdays
+          </label>
+        </div>
+
+        <label className="admin-field-label">
+          Holiday Name *
+          <input
+            required
+            type="text"
+            placeholder="Example: Eid Holiday"
+            value={holidayForm.name}
+            onChange={(e) =>
+              setHolidayForm({
+                ...holidayForm,
+                name: e.target.value
+              })
+            }
+          />
+        </label>
+
+        <label className="admin-field-label">
+          Holiday Date *
+          <input
+            required
+            type="date"
+            value={holidayForm.date}
+            onChange={(e) =>
+              setHolidayForm({
+                ...holidayForm,
+                date: e.target.value
+              })
+            }
+          />
+        </label>
+
+        <button
+          type="submit"
+          className="primary-btn"
+          disabled={isLoading}
+        >
+          {isLoading ? "Saving..." : "Add Public Holiday"}
+        </button>
+      </form>
+
+      <div className="admin-saved-list">
+        <h4>Saved Holidays</h4>
+
+        {publicHolidays.map((holiday) => (
+          <div className="admin-saved-row" key={holiday.id}>
+            <div>
+              <strong>{holiday.name}</strong>
+              <small>{holiday.date}</small>
+            </div>
+
+            <button
+              type="button"
+              className="text-danger"
+              onClick={() => removeHoliday(holiday.id)}
+            >
+              Delete
+            </button>
+          </div>
+        ))}
+
+        {publicHolidays.length === 0 && (
+          <p className="muted">No holidays added yet.</p>
+        )}
+      </div>
+    </div>
+  </section>
+
+  <section
+    id="admin-group-section"
+    className="admin-work-section"
+  >
+    <div className="admin-work-header">
+      <div>
+        <span className="admin-panel-kicker">GROUP ADMIN</span>
+        <h3>Staff Group Management</h3>
+        <p>
+          Staff group creation and editing still opens in the Staff Groups
+          page for this phase.
+        </p>
+      </div>
+
+      <span className="admin-work-count">
+        {staffGroups.length} staff groups
+      </span>
+    </div>
+
+    <div className="admin-work-card admin-group-overview">
+      <div className="admin-mini-stat">
+        <strong>{staffGroups.length}</strong>
+        <span>Total saved groups</span>
+      </div>
+
+      <div className="admin-mini-stat">
+        <strong>{councilEmptyGroups}</strong>
+        <span>Groups without members</span>
+      </div>
+
+      <button
+        type="button"
+        className="primary-btn"
+        onClick={() => closeSidebarAndGo("groups")}
+      >
+        Open Staff Groups
+      </button>
+    </div>
+  </section>
+</section>
+
+        <section className="admin-next-phase-note">
+          <strong>Next Phase</strong>
+
+          <p>
+            Staff Registration, Add Leave Record and Holiday Management are now inside
+the Admin Panel. Next, we will move edit/delete/bulk controls from normal
+viewing pages into this Admin Panel.
+          </p>
+        </section>
+      </>
+    )}
+  </div>
+)}
+
           {/* ADMIN TAB */}
           {activeTab === "admin" && (
             <div className="admin-grid">
@@ -8193,7 +8939,7 @@ Unlock Hukuru 2026
 
     <button
       className="primary-btn-sm"
-      onClick={() => closeSidebarAndGo("admin")}
+      onClick={() => openAdminPanelSection("admin-leave-section")}
     >
       + Add New Leave
     </button>
@@ -8468,68 +9214,80 @@ Unlock Hukuru 2026
       <h3>Work Handover</h3>
 
       <p>
-        Select up to 3 staff members who received work handover from{" "}
+        Select up to 3 staff members and add 1 custom handover name for{" "}
         <strong>{handoverModal.employee}</strong>.
       </p>
 
       <div className="handover-slot-list">
-        {[0, 1, 2].map((slotIndex) => {
-          const selectedInOtherSlots = handoverStaffList
-            .filter((_, index) => index !== slotIndex)
-            .map((name) => normalizeNoticeName(name))
-            .filter(Boolean);
+  {[0, 1, 2].map((slotIndex) => {
+    const selectedInOtherSlots = handoverStaffList
+      .filter((_, index) => index !== slotIndex && index < 3)
+      .map((name) => normalizeNoticeName(name))
+      .filter(Boolean);
 
-          return (
-            <label
-              className="handover-modal-label"
-              key={`handover-slot-${slotIndex}`}
-            >
-              Handover Staff {slotIndex + 1}
+    return (
+      <label
+        className="handover-modal-label"
+        key={`handover-slot-${slotIndex}`}
+      >
+        Handover Staff {slotIndex + 1}
 
-              <select
-                value={handoverStaffList[slotIndex] || ""}
-                onChange={(e) =>
-                  updateHandoverStaff(slotIndex, e.target.value)
-                }
-              >
-                <option value="">
-                  {slotIndex === 0
-                    ? "Not selected / Clear handover"
-                    : "Optional"}
-                </option>
+        <select
+          value={handoverStaffList[slotIndex] || ""}
+          onChange={(e) =>
+            updateHandoverStaff(slotIndex, e.target.value)
+          }
+        >
+          <option value="">
+            {slotIndex === 0
+              ? "Not selected / Clear handover"
+              : "Optional"}
+          </option>
 
-                {activeEmployees
-                  .filter((employee) => {
-                    const employeeName = normalizeNoticeName(employee.name);
-                    const leaveOwnerName = normalizeNoticeName(
-                      handoverModal.employee
-                    );
+          {activeEmployees
+            .filter((employee) => {
+              const employeeName = normalizeNoticeName(employee.name);
+              const leaveOwnerName = normalizeNoticeName(
+                handoverModal.employee
+              );
 
-                    return (
-                      employeeName !== leaveOwnerName &&
-                      !selectedInOtherSlots.includes(employeeName)
-                    );
-                  })
-                  .sort((a, b) =>
-                    (a.name || "").localeCompare(b.name || "")
-                  )
-                  .map((employee) => (
-                    <option key={employee.id} value={employee.name}>
-                      {employee.name}
-                      {employee.designation
-                        ? ` — ${employee.designation}`
-                        : ""}
-                    </option>
-                  ))}
-              </select>
-            </label>
-          );
-        })}
+              return (
+                employeeName !== leaveOwnerName &&
+                !selectedInOtherSlots.includes(employeeName)
+              );
+            })
+            .sort((a, b) =>
+              (a.name || "").localeCompare(b.name || "")
+            )
+            .map((employee) => (
+              <option key={employee.id} value={employee.name}>
+                {employee.name}
+                {employee.designation
+                  ? ` — ${employee.designation}`
+                  : ""}
+              </option>
+            ))}
+        </select>
+      </label>
+    );
+  })}
 
-        <p className="handover-slot-help">
-          You can select up to 3 staff members. Empty slots will not be shown.
-        </p>
-      </div>
+  <label className="handover-modal-label">
+    Handover Staff 4
+
+    <input
+      type="text"
+      placeholder="Enter custom handover name"
+      value={handoverStaffList[3] || ""}
+      onChange={(e) => updateHandoverStaff(3, e.target.value)}
+    />
+  </label>
+
+  <p className="handover-slot-help">
+    You can select up to 3 staff members and add 1 custom handover name.
+    Empty slots will not be shown.
+  </p>
+</div>
 
       <div className="confirm-actions">
         <button
