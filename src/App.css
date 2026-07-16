@@ -11724,3 +11724,110 @@ select:disabled {
     transition-duration: 1ms !important;
   }
 }
+
+/* =========================================================
+   LEAVE BY SECTION — OVERLAP CHECK COLUMN
+========================================================= */
+
+.handover-leave-card {
+  grid-template-columns:
+    minmax(220px, 1.15fr)
+    minmax(135px, 0.48fr)
+    minmax(230px, 1fr)
+    auto !important;
+}
+
+/* Middle overlap-check box */
+.leave-overlap-column {
+  min-height: 74px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 9px;
+
+  padding: 13px;
+
+  border: 1px solid #fed7aa;
+  border-radius: 16px;
+
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(249, 115, 22, 0.1),
+      transparent 36%
+    ),
+    #fffaf5;
+}
+
+/* Compact overlap button */
+.leave-overlap-btn {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 11px;
+
+  border-color: #fdba74;
+  background: #fff7ed;
+  color: #c2410c;
+
+  font-size: 0.76rem;
+  font-weight: 900;
+  white-space: nowrap;
+
+  box-shadow:
+    0 7px 16px rgba(194, 65, 12, 0.07);
+}
+
+.leave-overlap-btn:hover {
+  border-color: #fb923c;
+  background: #ffedd5;
+  color: #9a3412;
+
+  box-shadow:
+    0 10px 22px rgba(194, 65, 12, 0.12);
+}
+
+/* Tablet: place actions underneath when space becomes limited */
+@media (max-width: 1180px) {
+  .handover-leave-card {
+    grid-template-columns:
+      minmax(210px, 1fr)
+      minmax(135px, 0.5fr)
+      minmax(220px, 1fr) !important;
+  }
+
+  .handover-leave-card .leave-section-actions {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: center;
+  }
+
+  .handover-leave-card
+  .leave-section-actions
+  > * {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* Mobile: stack in a clear reading order */
+@media (max-width: 800px) {
+  .handover-leave-card {
+    grid-template-columns: 1fr !important;
+  }
+
+  .leave-overlap-column {
+    width: 100%;
+    min-height: auto;
+  }
+
+  .leave-overlap-btn {
+    width: 100%;
+  }
+
+  .handover-leave-card .leave-section-actions {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+  }
+}

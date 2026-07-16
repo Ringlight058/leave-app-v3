@@ -8662,6 +8662,20 @@ Holiday Management.
             </span>
           </div>
 
+<div className="leave-overlap-column">
+  <span className="handover-label">
+    Overlap Check
+  </span>
+
+  <button
+    type="button"
+    className="secondary-btn-sm leave-overlap-btn"
+    onClick={() => viewOverlaps(leave)}
+  >
+    Check Overlaps
+  </button>
+</div>
+
           <div className="handover-column">
             <span className="handover-label">
               Work Handover
