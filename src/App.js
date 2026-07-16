@@ -140,6 +140,25 @@ const recentBuildUpgrades = [
   }
 ];
 
+const defaultHomeDashboardVisibility = {
+  calendar: true,
+  upcomingLeaves: true,
+  dailyLeaves: true
+};
+
+const getStaffInitials = (name = "") => {
+  const words = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (words.length === 0) return "—";
+
+  return words
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join("");
+};
 
 function App() {
   const [activeTab, setActiveTab] = useState("home");
@@ -195,6 +214,15 @@ function App() {
   const [employeeEmailModal, setEmployeeEmailModal] = useState(null);
   const [employeeEmailInput, setEmployeeEmailInput] = useState("");
   const [buildInfoOpen, setBuildInfoOpen] = useState(false);
+  const [
+  homeDashboardVisibility,
+  setHomeDashboardVisibility
+] = useState(defaultHomeDashboardVisibility);
+
+const [
+  isHomeVisibilitySaving,
+  setIsHomeVisibilitySaving
+] = useState(false);
 
   const [adminPanelUnlocked, setAdminPanelUnlocked] = useState(false);
   const [adminPanelPassword, setAdminPanelPassword] = useState("");
@@ -943,6 +971,7 @@ const [hukuruRecord, setHukuruRecord] = useState({
   const [leaves, setLeaves] = useState([]);
   const [settings] = useState({ excludeFriday: true, excludeSaturday: true });
   const [publicHolidays, setPublicHolidays] = useState([]);
+  const [showAllHolidays, setShowAllHolidays] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [isDatePanelClosing, setIsDatePanelClosing] = useState(false);
   const [leaveCheckDate, setLeaveCheckDate] = useState(
@@ -996,6 +1025,37 @@ const [overviewYaumiyyaRecord, setOverviewYaumiyyaRecord] = useState({
 
 
   const [holidayForm, setHolidayForm] = useState({ name: "", date: "" });
+
+/* ======================================================
+   ADMIN SAVED HOLIDAYS DISPLAY ORDER
+   Upcoming holidays first, then previous holidays
+   ====================================================== */
+
+const sortedPublicHolidays = useMemo(() => {
+  const today = getMaldivesDateString();
+
+  return [...publicHolidays].sort((a, b) => {
+    const firstDate = a.date || "";
+    const secondDate = b.date || "";
+
+    const firstIsPast = firstDate < today;
+    const secondIsPast = secondDate < today;
+
+    // Upcoming holidays appear before previous holidays.
+    if (firstIsPast !== secondIsPast) {
+      return firstIsPast ? 1 : -1;
+    }
+
+    // Upcoming holidays: nearest date first.
+    if (!firstIsPast) {
+      return firstDate.localeCompare(secondDate);
+    }
+
+    // Previous holidays: most recent first.
+    return secondDate.localeCompare(firstDate);
+  });
+}, [publicHolidays]);
+
   const [dirFilter, setDirFilter] = useState({ section: "", supervisor: "" });
 
   const [isLoading, setIsLoading] = useState(false); 
@@ -1066,10 +1126,100 @@ setOverviewYaumiyyaRecord({
     }
   };
 
-  useEffect(() => {
+/* ======================================================
+   HOME DASHBOARD VISIBILITY SETTINGS
+   ====================================================== */
+
+const loadHomeDashboardVisibility = async () => {
+  try {
+    const settingsReference = doc(
+      db,
+      "appSettings",
+      "homeDashboard"
+    );
+
+    const settingsSnapshot = await getDoc(settingsReference);
+
+    if (settingsSnapshot.exists()) {
+      setHomeDashboardVisibility({
+        ...defaultHomeDashboardVisibility,
+        ...settingsSnapshot.data()
+      });
+    } else {
+      setHomeDashboardVisibility(
+        defaultHomeDashboardVisibility
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Could not load Home Dashboard visibility:",
+      error
+    );
+
+    // Keep everything visible if the setting cannot load.
+    setHomeDashboardVisibility(
+      defaultHomeDashboardVisibility
+    );
+  }
+};
+
+const updateHomeDashboardVisibility = async (
+  widgetKey,
+  isVisible
+) => {
+  const previousSettings = {
+    ...homeDashboardVisibility
+  };
+
+  const nextSettings = {
+    ...homeDashboardVisibility,
+    [widgetKey]: isVisible
+  };
+
+  setHomeDashboardVisibility(nextSettings);
+  setIsHomeVisibilitySaving(true);
+
+  try {
+    await setDoc(
+      doc(db, "appSettings", "homeDashboard"),
+      nextSettings,
+      { merge: true }
+    );
+
+    showToast("Home Dashboard visibility updated.");
+  } catch (error) {
+    console.error(
+      "Could not save Home Dashboard visibility:",
+      error
+    );
+
+    setHomeDashboardVisibility(previousSettings);
+
+    showToast(
+      "Could not save Dashboard visibility.",
+      "error"
+    );
+  } finally {
+    setIsHomeVisibilitySaving(false);
+  }
+};
+
+const refreshHomeDashboard = async () => {
+  await refreshData();
+  await loadHomeDashboardVisibility();
+};
+
+/* ======================================================
+   INITIAL AUTHENTICATED DATA LOAD
+   ====================================================== */
+
+useEffect(() => {
   if (!authChecked || !user) return;
 
   refreshData();
+  loadHomeDashboardVisibility();
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [authChecked, user]);
 
 useEffect(() => {
@@ -1460,10 +1610,71 @@ const saveAttendance = async () => {
       .slice(0, 6);
   }, [leaves]);
 
-  const holidayDateSet = useMemo(
-    () => new Set(publicHolidays.map((h) => h.date)),
-    [publicHolidays]
+const homeCalendarDates = useMemo(() => {
+  const firstMonth = new Date(
+    viewDate.getFullYear(),
+    viewDate.getMonth(),
+    1
   );
+
+  const secondMonth = new Date(
+    viewDate.getFullYear(),
+    viewDate.getMonth() + 1,
+    1
+  );
+
+  return [firstMonth, secondMonth];
+}, [viewDate]);
+
+/* ======================================================
+   CURRENT SALARY PERIOD
+   16th of one month until 15th of the following month
+   ====================================================== */
+
+const currentSalaryPeriod = (() => {
+  const today = new Date(
+    `${getMaldivesDateString()}T12:00:00`
+  );
+
+  let startDate;
+  let endDate;
+
+  if (today.getDate() >= 16) {
+    startDate = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      16
+    );
+
+    endDate = new Date(
+      today.getFullYear(),
+      today.getMonth() + 1,
+      15
+    );
+  } else {
+    startDate = new Date(
+      today.getFullYear(),
+      today.getMonth() - 1,
+      16
+    );
+
+    endDate = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      15
+    );
+  }
+
+  return {
+    start: formatLocalDateString(startDate),
+    end: formatLocalDateString(endDate)
+  };
+})();
+
+const holidayDateSet = useMemo(
+  () => new Set(publicHolidays.map((h) => h.date)),
+  [publicHolidays]
+);
 
 const publicHolidayMap = useMemo(() => {
   const map = new Map();
@@ -1497,66 +1708,115 @@ const handleCalendarDateClick = (dateStr) => {
   }
 };
 
-const renderCalendarDays = () => {
-  const year = viewDate.getFullYear();
-  const month = viewDate.getMonth();
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+const renderCalendarDays = (calendarDate) => {
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+
+  const firstDay = new Date(
+    year,
+    month,
+    1
+  ).getDay();
+
+  const daysInMonth = new Date(
+    year,
+    month + 1,
+    0
+  ).getDate();
+
   const todayStr = getMaldivesDateString();
+
+  const calendarKey = `${year}-${String(
+    month + 1
+  ).padStart(2, "0")}`;
 
   const cells = [];
 
-  for (let i = 0; i < firstDay; i++) {
+  for (let i = 0; i < firstDay; i += 1) {
     cells.push(
-      <div key={`empty-${i}`} className="cal-day empty"></div>
+      <div
+        key={`${calendarKey}-empty-${i}`}
+        className="cal-day empty"
+      />
     );
   }
 
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(
-      d
-    ).padStart(2, "0")}`;
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const dateStr = `${year}-${String(
+      month + 1
+    ).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
-    const dayOfWeek = new Date(year, month, d).getDay();
+    const dayOfWeek = new Date(
+      year,
+      month,
+      day
+    ).getDay();
 
-    const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
-    const holidayName = publicHolidayMap.get(dateStr);
-    const isHoliday = Boolean(holidayName);
-    const isToday = todayStr === dateStr;
+    const isWeekend =
+      dayOfWeek === 5 || dayOfWeek === 6;
 
-    let className = "cal-day";
+    const holidayName =
+      publicHolidayMap.get(dateStr);
 
-    if (isWeekend) className += " cal-red cal-weekend";
-    if (isHoliday) className += " cal-red cal-holiday";
-    if (isToday) className += " cal-today";
-    if (selectedDate === dateStr) className += " cal-selected";
+const isHoliday = Boolean(holidayName);
+const isToday = todayStr === dateStr;
+
+const isCurrentSalaryPeriod =
+  dateStr >= currentSalaryPeriod.start &&
+  dateStr <= currentSalaryPeriod.end;
+
+let className = "cal-day";
+    if (isWeekend) {
+      className += " cal-red cal-weekend";
+    }
+
+    if (isHoliday) {
+      className += " cal-red cal-holiday";
+    }
+
+    if (isToday) {
+  className += " cal-today";
+}
+
+if (isCurrentSalaryPeriod) {
+  className += " cal-salary-period";
+}
+
+if (selectedDate === dateStr) {
+      className += " cal-selected";
+    }
 
     cells.push(
-      <div
+      <button
+        type="button"
         key={dateStr}
         className={className}
-        onClick={() => handleCalendarDateClick(dateStr)}
-        style={{ cursor: "pointer" }}
+        onClick={() =>
+          handleCalendarDateClick(dateStr)
+        }
         title={isHoliday ? holidayName : ""}
       >
-        <span className="cal-date-number">{d}</span>
+        <span className="cal-date-number">
+          {day}
+        </span>
 
         {isHoliday && (
-  <span
-    className={`cal-holiday-name ${
-      holidayName.length > 14 ? "marquee" : ""
-    }`}
-  >
-    <span>{holidayName}</span>
-  </span>
-)}
-      </div>
+          <span
+            className={`cal-holiday-name ${
+              holidayName.length > 14
+                ? "marquee"
+                : ""
+            }`}
+          >
+            <span>{holidayName}</span>
+          </span>
+        )}
+      </button>
     );
   }
 
   return cells;
 };
-
 
   const changeMonth = (offset) => {
     setViewDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
@@ -4514,6 +4774,45 @@ const getEmployeeDisplayName = (staffName) => {
     ? `${staffName} (${emp.designation})`
     : staffName;
 };
+
+const dailyLeaveSections = [
+  {
+    key: "annualLeave",
+    title: "Annual Leave",
+    names: yaumiyyaRecord.annualLeave || []
+  },
+  {
+    key: "familyLeave",
+    title: "Family Leave",
+    names: yaumiyyaRecord.familyLeave || []
+  },
+  {
+    key: "sickLeaveMC",
+    title: "Sick Leave With MC",
+    names: yaumiyyaRecord.sickLeaveMC || []
+  },
+  {
+    key: "sickLeaveNoMC",
+    title: "Sick Leave Without MC",
+    names: yaumiyyaRecord.sickLeaveNoMC || []
+  },
+  {
+    key: "customLeave",
+    title:
+      yaumiyyaRecord.customLeaveTitle ||
+      "Other Leave",
+    names: yaumiyyaRecord.customLeave || []
+  }
+];
+
+const visibleHomeTopWidgetCount =
+  Number(homeDashboardVisibility.calendar) +
+  Number(homeDashboardVisibility.upcomingLeaves);
+
+const enabledHomeWidgetCount = Object.values(
+  homeDashboardVisibility
+).filter(Boolean).length;
+
 const getPresenceInfo = (empName) => {
   const cleanName = (name) => (name || "").trim().toLowerCase();
 
@@ -4726,7 +5025,7 @@ return (
 
   <div className="brand-text">
     <span className="brand-title">Funadhoo Council</span>
-    <small className="brand-version">V5.2</small>
+    <small className="brand-version">V5.3</small>
   </div>
 </div>
         <ul className="nav-menu">
@@ -4873,7 +5172,11 @@ return (
 </ul>
       </nav>
 
-      <main className="main-content">
+      <main
+  className={`main-content ${
+    activeTab === "home" ? "home-dot-background" : ""
+  }`}
+>
         <header className="main-header">
           <button className="burger-btn" onClick={() => setIsSidebarOpen(true)}>☰</button>
           <h1 className="page-title">
@@ -4897,192 +5200,386 @@ return (
 </div>
         </header>
 
-        <div className="content-area">
-          {/* HOME TAB */}
-          {activeTab === "home" && (
-  <div className="home-grid">
-    <section className="panel">
+<div className="content-area">
 
-<div className="flex-between mb-4">
-  <h2>
-    {months[viewDate.getMonth()]} {viewDate.getFullYear()}
-  </h2>
+{/* =====================================================
+    HOME TAB
+    ===================================================== */}
+{activeTab === "home" && (
+  <div
+    className={`home-grid home-dashboard-v6 ${
+      visibleHomeTopWidgetCount === 1
+        ? "home-dashboard-single"
+        : ""
+    }`}
+  >
+    {/* LEFT SIDE: TWO-MONTH CALENDAR */}
+    {homeDashboardVisibility.calendar && (
+      <section className="panel home-calendar-panel">
+        <div className="flex-between mb-4 home-calendar-toolbar">
+          <div>
+            <span className="home-card-kicker">
+              LEAVE CALENDAR
+            </span>
 
-  <div className="btn-group">
-    <button type="button" onClick={() => changeMonth(-1)}>←</button>
-    <button type="button" onClick={() => changeMonth(1)}>→</button>
-  </div>
-</div>
-
-  <div className="calendar-box">
-    <div className="cal-weekdays">
-      {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d) => (
-        <div key={d}>{d}</div>
-      ))}
-    </div>
-
-    <div className="cal-grid">
-      {renderCalendarDays()}
-    </div>
-  </div>
-
-  {/* ✅ IMPORTANT: KEEP THIS INSIDE SECTION */}
-  {selectedDate && (
-    <div className={`selected-date-panel ${isDatePanelClosing ? "closing" : ""}`}>
-      <h3>Leaves on {selectedDate}</h3>
-
-      {employeesOnSelectedDate.length > 0 ? (
-        employeesOnSelectedDate.map((leave) => (
-          <div key={leave.id} className="closest-item">
-            <div className="closest-info">
-              <strong>{leave.employee}</strong>
-              <span>
-                {leave.start} to {leave.end}
-              </span>
-            </div>
+            <h2>
+              {months[homeCalendarDates[0].getMonth()]}{" "}
+              {homeCalendarDates[0].getFullYear()}
+              {" — "}
+              {months[homeCalendarDates[1].getMonth()]}{" "}
+              {homeCalendarDates[1].getFullYear()}
+            </h2>
           </div>
-        ))
-      ) : (
-        <p className="muted">No employees are on leave on this date.</p>
-      )}
-    </div>
-  )}
 
-</section>
+          <div className="btn-group">
+            <button
+              type="button"
+              aria-label="Previous month"
+              onClick={() => changeMonth(-1)}
+            >
+              ←
+            </button>
 
-              <section className="panel">
-                <div className="flex-between mb-4">
-                  <h2>Closest Leaves</h2>
-                  <button className="refresh-btn" onClick={refreshData}>Refresh</button>
-                </div>
-                <div className="closest-list">
-                  {closestLeaves.map((l) => (
-                    <div key={l.id} className="closest-item">
-                      <div className="closest-info">
-                        <strong>{l.employee}</strong>
-                        <span>{l.start} to {l.end}</span>
-                      </div>
-                      <div className="closest-tag">Upcoming</div>
+            <button
+              type="button"
+              aria-label="Next month"
+              onClick={() => changeMonth(1)}
+            >
+              →
+            </button>
+          </div>
+        </div>
+
+        <div className="home-calendar-months">
+          {homeCalendarDates.map((calendarDate, index) => (
+            <div
+              key={`${calendarDate.getFullYear()}-${calendarDate.getMonth()}`}
+              className={`home-calendar-month ${
+                index === 1
+                  ? "home-calendar-next-month"
+                  : ""
+              }`}
+            >
+              <h3>
+                {months[calendarDate.getMonth()]}{" "}
+                {calendarDate.getFullYear()}
+              </h3>
+
+              <div className="calendar-box">
+                <div className="cal-weekdays">
+                  {[
+                    "Sun",
+                    "Mon",
+                    "Tue",
+                    "Wed",
+                    "Thu",
+                    "Fri",
+                    "Sat"
+                  ].map((dayName) => (
+                    <div key={dayName}>
+                      {dayName}
                     </div>
                   ))}
-                  {closestLeaves.length === 0 && <p className="muted">No upcoming leave records.</p>}
                 </div>
-</section>
 
-<div className="panel full-width" style={{ gridColumn: "1 / -1" }}>
-  <button
-    className="primary-btn"
-    type="button"
-    onClick={() => setShowSalaamFRL(!showSalaamFRL)}
-  >
-    {showSalaamFRL ? "Hide Daily leaves" : "Show Daily Leaves"}
-  </button>
-
-  {showSalaamFRL && (
-    <div
-  className="closest-list mt-2"
-  style={{
-    maxHeight: "none",
-    overflowY: "visible"
-  }}
->
-{yaumiyyaRecord.annualLeave.length > 0 && (
-  <section className="panel">
-    <h2>Annual Leave</h2>
-    <div className="closest-list mt-2">
-      {yaumiyyaRecord.annualLeave.map((name) => (
-        <div key={`annual-${name}`} className="closest-item">
-          <strong>{getEmployeeDisplayName(name)}</strong>
-        </div>
-      ))}
-    </div>
-  </section>
-)}
-
-      {yaumiyyaRecord.familyLeave.length > 0 && (
-        <section className="panel">
-          <h2>Family Leave</h2>
-          <div
-  className="closest-list mt-2"
-  style={{
-    maxHeight: "none",
-    overflowY: "visible"
-  }}
->
-            {yaumiyyaRecord.familyLeave.map((name) => (
-              <div key={name} className="closest-item">
-                <strong>{getEmployeeDisplayName(name)}</strong>
+                <div className="cal-grid">
+                  {renderCalendarDays(calendarDate)}
+                </div>
               </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {yaumiyyaRecord.sickLeaveMC.length > 0 && (
-        <section className="panel">
-          <h2>Sick Leave With MC</h2>
-          <div
-  className="closest-list mt-2"
-  style={{
-    maxHeight: "none",
-    overflowY: "visible"
-  }}
->
-            {yaumiyyaRecord.sickLeaveMC.map((name) => (
-              <div key={name} className="closest-item">
-                <strong>{getEmployeeDisplayName(name)}</strong>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {yaumiyyaRecord.sickLeaveNoMC.length > 0 && (
-        <section className="panel">
-          <h2>Sick Leave Without MC</h2>
-          <div
-  className="closest-list mt-2"
-  style={{
-    maxHeight: "none",
-    overflowY: "visible"
-  }}
->
-            {yaumiyyaRecord.sickLeaveNoMC.map((name) => (
-              <div key={name} className="closest-item">
-                <strong>{getEmployeeDisplayName(name)}</strong>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-{yaumiyyaRecord.customLeave?.length > 0 && (
-  <section className="panel">
-    <h2>{yaumiyyaRecord.customLeaveTitle || "Other Leave"}</h2>
-
-    <div
-      className="closest-list mt-2"
-      style={{
-        maxHeight: "none",
-        overflowY: "visible"
-      }}
-    >
-      {yaumiyyaRecord.customLeave.map((name) => (
-        <div key={`custom-${name}`} className="closest-item">
-          <strong>{getEmployeeDisplayName(name)}</strong>
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
-  </section>
-)}
 
+        {/* SELECTED CALENDAR DATE DETAILS */}
+        {selectedDate && (
+          <div
+            className={`selected-date-panel ${
+              isDatePanelClosing ? "closing" : ""
+            }`}
+          >
+            <div className="flex-between mb-4">
+              <div>
+                <span className="home-card-kicker">
+                  SELECTED DATE
+                </span>
+
+                <h3>
+                  Leaves on {formatNoticeDate(selectedDate)}
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                className="close-btn"
+                aria-label="Close selected date"
+                onClick={() =>
+                  handleCalendarDateClick(selectedDate)
+                }
+              >
+                ×
+              </button>
+            </div>
+
+            {employeesOnSelectedDate.length > 0 ? (
+              <div className="selected-date-list">
+                {employeesOnSelectedDate.map((leave) => (
+                  <div
+                    key={leave.id}
+                    className="closest-item"
+                  >
+                    <div className="closest-info">
+                      <strong>{leave.employee}</strong>
+
+                      <span>
+                        {formatNoticeDate(leave.start)}
+                        {" — "}
+                        {formatNoticeDate(leave.end)}
+                      </span>
+                    </div>
+
+                    <span className="badge">
+                      {calculateLeaveDays(
+                        leave.start,
+                        leave.end
+                      )}{" "}
+                      working days
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="muted">
+                No employees are on leave on this date.
+              </p>
+            )}
+          </div>
+        )}
+      </section>
+    )}
+
+    {/* RIGHT SIDE: UPCOMING SIX LEAVES */}
+    {homeDashboardVisibility.upcomingLeaves && (
+      <section className="panel home-upcoming-panel">
+        <div className="flex-between mb-4">
+          <div>
+            <span className="home-card-kicker">
+              LEAVE PLANNING
+            </span>
+
+            <h2>Upcoming Leaves</h2>
+
+            <p className="muted">
+              The next six scheduled leave records.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="refresh-btn"
+            onClick={refreshHomeDashboard}
+          >
+            Refresh
+          </button>
         </div>
-  )}
-</div>
 
+        <div className="home-upcoming-list">
+          {closestLeaves.map((leave) => {
+            const employee = employees.find(
+              (item) =>
+                normalizeNoticeName(item.name) ===
+                normalizeNoticeName(leave.employee)
+            );
+
+            return (
+              <article
+                className="home-upcoming-item"
+                key={leave.id}
+              >
+                <div className="home-upcoming-avatar">
+                  {getStaffInitials(leave.employee)}
+                </div>
+
+                <div className="home-upcoming-copy">
+                  {employee ? (
+                    <button
+                      type="button"
+                      className="profile-link"
+                      onClick={() =>
+                        openEmployeeProfile(employee)
+                      }
+                    >
+                      {leave.employee}
+                    </button>
+                  ) : (
+                    <strong>{leave.employee}</strong>
+                  )}
+
+                  <span>
+                    {formatNoticeDate(leave.start)}
+                    {" — "}
+                    {formatNoticeDate(leave.end)}
+                  </span>
+
+                  {employee?.designation && (
+                    <small>
+                      {employee.designation}
+                    </small>
+                  )}
+                </div>
+
+                <span className="closest-tag">
+                  Upcoming
+                </span>
+              </article>
+            );
+          })}
+
+          {closestLeaves.length === 0 && (
+            <div className="home-upcoming-empty">
+              <span>✓</span>
+
+              <div>
+                <strong>
+                  No upcoming leave records
+                </strong>
+
+                <small>
+                  Future leave records will appear here
+                  automatically.
+                </small>
+              </div>
             </div>
           )}
+        </div>
+      </section>
+    )}
 
+{/* BLUE DAILY LEAVES BUTTON BELOW CALENDAR */}
+{homeDashboardVisibility.dailyLeaves && (
+  <section
+    className="panel full-width home-daily-panel"
+    style={{ gridColumn: "1 / -1" }}
+  >
+    {/* SHOW / HIDE BUTTON */}
+    <button
+      className="primary-btn home-daily-toggle"
+      type="button"
+      aria-expanded={showSalaamFRL}
+      onClick={() =>
+        setShowSalaamFRL(
+          (currentValue) => !currentValue
+        )
+      }
+    >
+      {showSalaamFRL
+        ? "Hide Daily Leaves"
+        : "Show Daily Leaves"}
+    </button>
+
+    {/* ANIMATED CONTENT */}
+    <div
+      className={`home-daily-collapse ${
+        showSalaamFRL ? "is-open" : ""
+      }`}
+      aria-hidden={!showSalaamFRL}
+    >
+      <div className="home-daily-collapse-inner">
+        <div className="home-daily-grid">
+          {dailyLeaveSections
+            .filter(
+              (section) =>
+                section.names.length > 0
+            )
+            .map((section) => (
+              <section
+                className="panel home-daily-category"
+                key={section.key}
+              >
+                <div className="flex-between mb-4">
+                  <h2>{section.title}</h2>
+
+                  <span className="badge">
+                    {section.names.length}
+                  </span>
+                </div>
+
+                <div
+                  className="closest-list"
+                  style={{
+                    maxHeight: "none",
+                    overflowY: "visible"
+                  }}
+                >
+                  {section.names.map(
+                    (staffName, index) => (
+                      <div
+                        key={`${section.key}-${staffName}-${index}`}
+                        className="closest-item"
+                      >
+                        <div className="home-daily-person">
+                          <span className="home-daily-avatar">
+                            {getStaffInitials(
+                              staffName
+                            )}
+                          </span>
+
+                          <strong>
+                            {getEmployeeDisplayName(
+                              staffName
+                            )}
+                          </strong>
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              </section>
+            ))}
+
+          {dailyLeaveSections.every(
+            (section) =>
+              section.names.length === 0
+          ) && (
+            <div className="home-daily-empty">
+              <span>✓</span>
+
+              <div>
+                <strong>
+                  No Daily Leave records
+                </strong>
+
+                <small>
+                  No Yaumiyya leave categories have
+                  been recorded for today.
+                </small>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  </section>
+)}
+
+    {/* SHOWN ONLY WHEN ADMIN HIDES ALL THREE WIDGETS */}
+    {enabledHomeWidgetCount === 0 && (
+      <section
+        className="panel full-width home-dashboard-hidden"
+        style={{ gridColumn: "1 / -1" }}
+      >
+        <h2>Home Dashboard</h2>
+
+        <p className="muted">
+          All Home Dashboard widgets are currently
+          hidden. An administrator can enable them from
+          the Admin Panel.
+        </p>
+      </section>
+    )}
+  </div>
+)}
+
+{/* REPORTS TAB */}
 {activeTab === "reports" && (
   <div className="reports-page">
     {!reportsUnlocked ? (
@@ -6442,11 +6939,91 @@ Holiday Management.
           ))}
         </section>
 
-        <section className="admin-work-grid">
-  <section
-    id="admin-staff-section"
-    className="admin-work-section"
-  >
+                <section className="admin-work-grid">
+
+          {/* HOME DASHBOARD VISIBILITY */}
+          <section
+            id="admin-home-dashboard-section"
+            className="admin-work-section"
+          >
+            <div className="admin-work-header">
+              <div>
+                <span className="admin-panel-kicker">
+                  HOME DASHBOARD
+                </span>
+
+                <h3>Dashboard Widget Visibility</h3>
+
+                <p>
+                  Choose which sections are displayed on the Home page.
+                  Changes are saved for all devices.
+                </p>
+              </div>
+
+              <span className="admin-work-count">
+                {isHomeVisibilitySaving
+                  ? "Saving..."
+                  : `${enabledHomeWidgetCount} of 3 visible`}
+              </span>
+            </div>
+
+            <div className="admin-work-card home-widget-manager">
+              {[
+                {
+                  key: "calendar",
+                  title: "Leave Calendar",
+                  detail:
+                    "Display the two-month leave calendar and selected-date leave information."
+                },
+                {
+                  key: "upcomingLeaves",
+                  title: "Upcoming Leaves",
+                  detail:
+                    "Display the next six scheduled leave records on the Home page."
+                },
+                {
+                  key: "dailyLeaves",
+                  title: "Daily Leaves",
+                  detail:
+                    "Display the expandable Yaumiyya Daily Leaves section."
+                }
+              ].map((widget) => (
+                <label
+                  className="home-widget-toggle-row"
+                  key={widget.key}
+                >
+                  <span className="home-widget-toggle-copy">
+                    <strong>{widget.title}</strong>
+                    <small>{widget.detail}</small>
+                  </span>
+
+                  <span className="home-widget-switch">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(
+                        homeDashboardVisibility[widget.key]
+                      )}
+                      disabled={isHomeVisibilitySaving}
+                      onChange={(event) =>
+                        updateHomeDashboardVisibility(
+                          widget.key,
+                          event.target.checked
+                        )
+                      }
+                    />
+
+                    <span className="home-widget-switch-track" />
+                  </span>
+                </label>
+              ))}
+            </div>
+          </section>
+
+          {/* STAFF ADMIN */}
+          <section
+            id="admin-staff-section"
+            className="admin-work-section"
+          >
     <div className="admin-work-header">
       <div>
         <span className="admin-panel-kicker">STAFF ADMIN</span>
@@ -7143,30 +7720,134 @@ Holiday Management.
         </button>
       </form>
 
-      <div className="admin-saved-list">
-        <h4>Saved Holidays</h4>
+      <div className="admin-saved-list admin-holiday-saved-list">
+  <div className="admin-saved-list-title">
+    <div>
+      <h4>Saved Holidays</h4>
 
-        {publicHolidays.map((holiday) => (
-          <div className="admin-saved-row" key={holiday.id}>
-            <div>
-              <strong>{holiday.name}</strong>
-              <small>{holiday.date}</small>
-            </div>
+      {sortedPublicHolidays.length > 0 && (
+        <small>
+          Upcoming holidays are displayed first.
+        </small>
+      )}
+    </div>
 
-            <button
-              type="button"
-              className="text-danger"
-              onClick={() => removeHoliday(holiday.id)}
-            >
-              Delete
-            </button>
-          </div>
-        ))}
+    {sortedPublicHolidays.length > 0 && (
+      <span className="admin-holiday-visible-count">
+        {showAllHolidays
+          ? sortedPublicHolidays.length
+          : Math.min(6, sortedPublicHolidays.length)}
+        {" of "}
+        {sortedPublicHolidays.length} shown
+      </span>
+    )}
+  </div>
 
-        {publicHolidays.length === 0 && (
-          <p className="muted">No holidays added yet.</p>
-        )}
+  {/* FIRST SIX HOLIDAYS */}
+  {sortedPublicHolidays
+    .slice(0, 6)
+    .map((holiday) => (
+      <div
+        className="admin-saved-row admin-holiday-row"
+        key={holiday.id}
+      >
+        <div className="admin-holiday-row-copy">
+          <strong>{holiday.name}</strong>
+
+          <small>
+            {formatNoticeDate(holiday.date)}
+          </small>
+        </div>
+
+        <button
+          type="button"
+          className="text-danger"
+          onClick={() => removeHoliday(holiday.id)}
+        >
+          Delete
+        </button>
       </div>
+    ))}
+
+  {/* EXTRA HOLIDAYS — ANIMATED */}
+  {sortedPublicHolidays.length > 6 && (
+    <div
+      className={`admin-holiday-extra-collapse ${
+        showAllHolidays ? "is-open" : ""
+      }`}
+      aria-hidden={!showAllHolidays}
+    >
+      <div className="admin-holiday-extra-inner">
+        {sortedPublicHolidays
+          .slice(6)
+          .map((holiday) => (
+            <div
+              className="admin-saved-row admin-holiday-row"
+              key={holiday.id}
+            >
+              <div className="admin-holiday-row-copy">
+                <strong>{holiday.name}</strong>
+
+                <small>
+                  {formatNoticeDate(holiday.date)}
+                </small>
+              </div>
+
+              <button
+                type="button"
+                className="text-danger"
+                onClick={() =>
+                  removeHoliday(holiday.id)
+                }
+              >
+                Delete
+              </button>
+            </div>
+          ))}
+      </div>
+    </div>
+  )}
+
+  {/* SHOW ALL / SHOW FEWER BUTTON */}
+  {sortedPublicHolidays.length > 6 && (
+    <button
+      type="button"
+      className="admin-holiday-toggle"
+      aria-expanded={showAllHolidays}
+      onClick={() =>
+        setShowAllHolidays(
+          (currentValue) => !currentValue
+        )
+      }
+    >
+      <span>
+        {showAllHolidays
+          ? "Show fewer holidays"
+          : `Show all ${sortedPublicHolidays.length} holidays`}
+      </span>
+
+      <span
+        className="admin-holiday-toggle-arrow"
+        aria-hidden="true"
+      >
+        ⌄
+      </span>
+    </button>
+  )}
+
+  {sortedPublicHolidays.length === 0 && (
+    <div className="admin-holiday-empty">
+      <span>○</span>
+
+      <div>
+        <strong>No saved holidays</strong>
+        <small>
+          Added public holidays will appear here.
+        </small>
+      </div>
+    </div>
+  )}
+</div>
     </div>
   </section>
 
@@ -7394,9 +8075,7 @@ Holiday Management.
           <strong>Next Phase</strong>
 
           <p>
-            Normal pages are now view-only. Admin Panel is the main place for staff,
-leave, holiday and group management. Admin shortcuts now remember the target
-section and scroll there after unlocking.
+            ...
           </p>
         </section>
       </>
