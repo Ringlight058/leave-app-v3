@@ -5008,18 +5008,20 @@ const globalSearchResults = (() => {
   }
 
   const staffResults = employees
-    .filter((employee) =>
-      [
+    .filter((employee) => {
+      const searchableText = [
         employee.name,
         employee.email,
         employee.designation,
         employee.section,
         getSupervisorDisplayName(employee)
       ]
+        .filter(Boolean)
         .join(" ")
-        .toLowerCase()
-        .includes(term)
-    )
+        .toLowerCase();
+
+      return searchableText.includes(term);
+    })
     .slice(0, 8)
     .map((employee) => ({
       type: "Staff",
@@ -5033,17 +5035,19 @@ const globalSearchResults = (() => {
     }));
 
   const leaveResults = leaves
-    .filter((leave) =>
-      [
+    .filter((leave) => {
+      const searchableText = [
         leave.employee,
         leave.start,
         leave.end,
         normalizeHandoverList(leave.workHandoverTo).join(" ")
       ]
+        .filter(Boolean)
         .join(" ")
-        .toLowerCase()
-        .includes(term)
-    )
+        .toLowerCase();
+
+      return searchableText.includes(term);
+    })
     .slice(0, 8)
     .map((leave) => ({
       type: "Leave",
@@ -5058,12 +5062,17 @@ const globalSearchResults = (() => {
     }));
 
   const groupResults = staffGroups
-    .filter((group) =>
-      [group.name, ...(group.members || [])]
+    .filter((group) => {
+      const searchableText = [
+        group.name,
+        ...(group.members || [])
+      ]
+        .filter(Boolean)
         .join(" ")
-        .toLowerCase()
-        .includes(term)
-    )
+        .toLowerCase();
+
+      return searchableText.includes(term);
+    })
     .slice(0, 8)
     .map((group) => ({
       type: "Group",
@@ -5077,17 +5086,19 @@ const globalSearchResults = (() => {
     }));
 
   const noticeResults = notices
-    .filter((notice) =>
-      [
+    .filter((notice) => {
+      const searchableText = [
         notice.title,
         notice.description,
         notice.visibleGroupName,
         notice.fileName
       ]
+        .filter(Boolean)
         .join(" ")
-        .toLowerCase()
-        .includes(term)
-    )
+        .toLowerCase();
+
+      return searchableText.includes(term);
+    })
     .slice(0, 8)
     .map((notice) => ({
       type: "Notice",
@@ -5101,12 +5112,17 @@ const globalSearchResults = (() => {
     }));
 
   const holidayResults = publicHolidays
-    .filter((holiday) =>
-      [holiday.name, holiday.date]
+    .filter((holiday) => {
+      const searchableText = [
+        holiday.name,
+        holiday.date
+      ]
+        .filter(Boolean)
         .join(" ")
-        .toLowerCase()
-        .includes(term)
-    )
+        .toLowerCase();
+
+      return searchableText.includes(term);
+    })
     .slice(0, 8)
     .map((holiday) => ({
       type: "Holiday",
@@ -5133,16 +5149,7 @@ const globalSearchResults = (() => {
   };
 
   return (resultGroups[globalSearchType] || resultGroups.all).slice(0, 12);
-}, [
-  globalSearchTerm,
-  globalSearchType,
-  employees,
-  leaves,
-  staffGroups,
-  notices,
-  publicHolidays,
-  calculateLeaveDays
-]);
+})();
 
 const openGlobalSearchResult = (result) => {
   if (result.actionType === "staff") {
@@ -5444,27 +5451,58 @@ return (
   </div>
 
   {globalSearchResults.length > 0 ? (
-                  globalSearchResults.map((result, index) => (
-                    <button
-                      type="button"
-                      className="global-search-result"
-                      key={`${result.type}-${result.title}-${index}`}
-                      onClick={() => openGlobalSearchResult(result)}
-                    >
-                      <span className="global-search-type">
-                        {result.type}
-                      </span>
+                  globalSearchResults.map((result, index) => {
+  const resultType =
+    result.type ||
+    result.category ||
+    result.actionType ||
+    "Result";
 
-                      <span className="global-search-copy">
-                        <strong>{result.title}</strong>
-                        <small>{result.detail}</small>
-                      </span>
+  const resultTitle =
+    result.title ||
+    result.name ||
+    result.payload?.name ||
+    result.payload?.employee ||
+    result.payload?.title ||
+    result.payload?.date ||
+    "Untitled result";
 
-                      <span className="global-search-badge">
-                        {result.badge}
-                      </span>
-                    </button>
-                  ))
+  const resultDetail =
+    result.detail ||
+    result.description ||
+    result.payload?.designation ||
+    result.payload?.section ||
+    result.payload?.start ||
+    result.payload?.description ||
+    "Open this result";
+
+  const resultBadge =
+    result.badge ||
+    result.action ||
+    "Open";
+
+  return (
+    <button
+      type="button"
+      className="global-search-result"
+      key={`${resultType}-${resultTitle}-${index}`}
+      onClick={() => openGlobalSearchResult(result)}
+    >
+      <span className="global-search-type">
+        {resultType}
+      </span>
+
+      <span className="global-search-copy">
+        <strong>{resultTitle}</strong>
+        <small>{resultDetail}</small>
+      </span>
+
+      <span className="global-search-badge">
+        {resultBadge}
+      </span>
+    </button>
+  );
+})
                 ) : (
                   <div className="global-search-empty">
                     No matching results found.
