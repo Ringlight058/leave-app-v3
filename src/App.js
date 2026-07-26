@@ -95,7 +95,11 @@ const addReportHeaderFooter = (pdf, title, totalRecords) => {
 
 const recentBuildUpgrades = [
   {
-    title: "Admin Panel Phase 2",
+  title: "New Sidebar and Menu Animations",
+  detail: "Sidebar navigation was redesigned with clean expandable sections, direct Home links and smooth open/close animations."
+},
+  {
+    title: "Added admin Panel Phase 2",
     detail: "Staff Registration, Add Leave Record and Holiday Management were moved into the Admin Panel."
   },
   {
@@ -130,14 +134,6 @@ const recentBuildUpgrades = [
     title: "Smart Admin Shortcuts",
     detail: "Admin shortcuts now remember the selected section and scroll there automatically after unlocking."
   },
-  {
-    title: "Leave by Section Restored",
-    detail: "Leave by Section was restored with date, section, supervisor, handover and staff search filters."
-  },
-  {
-    title: "Calendar Readability",
-    detail: "Home calendar date numbers were enlarged for better visibility."
-  }
 ];
 
 const defaultHomeDashboardVisibility = {
@@ -162,7 +158,20 @@ const getStaffInitials = (name = "") => {
 
 function App() {
   const [activeTab, setActiveTab] = useState("home");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+const defaultSidebarGroupState = {
+  organization: false,
+  leave: false,
+  attendance: false,
+  mosque: false,
+  admin: false
+};
+
+const [openSidebarGroups, setOpenSidebarGroups] = useState(
+  defaultSidebarGroupState
+);
+
   const [viewDate, setViewDate] = useState(new Date());
   const [leaveSearch, setLeaveSearch] = useState("");
   const [leaveBySectionSearch, setLeaveBySectionSearch] = useState("");
@@ -1262,7 +1271,76 @@ useEffect(() => {
 
 const closeSidebarAndGo = (tab) => {
   setActiveTab(tab);
+  setOpenSidebarGroups(defaultSidebarGroupState);
   setIsSidebarOpen(false);
+};
+
+const sidebarMenuGroups = [
+  {
+    id: "organization",
+    title: "Organization",
+    icon: "⌘",
+    tabs: [
+      { tab: "directory", label: "Staff Directory" },
+      { tab: "groups", label: "Staff Groups" }
+    ]
+  },
+  {
+    id: "leave",
+    title: "Leave Management",
+    icon: "✈",
+    tabs: [
+      { tab: "records", label: "Leave Records" },
+      { tab: "staff-on-leave", label: "Staff on Leave" },
+      { tab: "leave-by-section", label: "Leave by Section" },
+      { tab: "leave-trend", label: "Leave Trend" },
+      { tab: "yaumiyya", label: "Yaumiyya" }
+    ]
+  },
+  {
+    id: "attendance",
+    title: "Attendance",
+    icon: "◷",
+    tabs: [
+      { tab: "attendance", label: "Attendance" },
+      { tab: "presence-board", label: "Presence Board" },
+      { tab: "attendance-settings", label: "Attendance Settings" }
+    ]
+  },
+  {
+    id: "mosque",
+    title: "Mosque Services",
+    icon: "☪",
+    tabs: [
+      { tab: "imaam-directory", label: "Imaam Directory" },
+      { tab: "vaguthee-imaam", label: "Vaguthee Imaam" },
+      { tab: "hukuru-2026", label: "Friday Prayer Schedule" }
+    ]
+  },
+  {
+    id: "admin",
+    title: "Admin & Reports",
+    icon: "⚙",
+    tabs: [
+      { tab: "admin-panel", label: "Admin Panel" },
+      { tab: "reports", label: "Reports" }
+    ]
+  }
+];
+
+const isSidebarGroupActive = (group) => {
+  return group.tabs.some((item) => item.tab === activeTab);
+};
+
+const toggleSidebarGroup = (groupId) => {
+  setOpenSidebarGroups((previous) => {
+    const isCurrentlyOpen = Boolean(previous[groupId]);
+
+    return {
+      ...defaultSidebarGroupState,
+      [groupId]: !isCurrentlyOpen
+    };
+  });
 };
 
 const openAdminPanelSection = (sectionId = "") => {
@@ -5025,150 +5103,97 @@ return (
 
   <div className="brand-text">
     <span className="brand-title">Funadhoo Council</span>
-    <small className="brand-version">V5.3</small>
+    <small className="brand-version">V5.4</small>
   </div>
 </div>
-        <ul className="nav-menu">
-  <li className="nav-label">Overview</li>
-
+        <ul className="nav-menu sidebar-accordion-menu">
   <li
-    className={activeTab === "home" ? "active" : ""}
+    className={`sidebar-direct-link ${
+      activeTab === "home" ? "active" : ""
+    }`}
     onClick={() => closeSidebarAndGo("home")}
   >
+    <span className="sidebar-direct-dot"></span>
     Home
   </li>
 
   <li
-  className={activeTab === "dashboard" ? "active" : ""}
-  onClick={() => closeSidebarAndGo("dashboard")}
->
-  Council Overview
-</li>
+    className={`sidebar-direct-link ${
+      activeTab === "dashboard" ? "active" : ""
+    }`}
+    onClick={() => closeSidebarAndGo("dashboard")}
+  >
+    <span className="sidebar-direct-dot"></span>
+    Council Overview
+  </li>
 
   <li
-    className={activeTab === "notice-board" ? "active" : ""}
+    className={`sidebar-direct-link ${
+      activeTab === "notice-board" ? "active" : ""
+    }`}
     onClick={() => closeSidebarAndGo("notice-board")}
   >
+    <span className="sidebar-direct-dot"></span>
     Notice Board
   </li>
 
-  <li className="nav-label">Staff &amp; Structure</li>
+  <li className="sidebar-menu-divider"></li>
 
-  <li
-    className={activeTab === "directory" ? "active" : ""}
-    onClick={() => closeSidebarAndGo("directory")}
-  >
-    Staff Directory
-  </li>
+  {sidebarMenuGroups.map((group) => {
+    const groupIsActive = isSidebarGroupActive(group);
+    const groupIsOpen = Boolean(openSidebarGroups[group.id]);
 
-  <li
-    className={activeTab === "groups" ? "active" : ""}
-    onClick={() => closeSidebarAndGo("groups")}
-  >
-    Staff Groups
-  </li>
+    return (
+      <li
+        className={`sidebar-accordion-item ${
+          groupIsActive ? "group-active" : ""
+        }`}
+        key={group.id}
+      >
+        <button
+          type="button"
+          className={`sidebar-group-toggle ${
+            groupIsActive ? "active" : ""
+          }`}
+          onClick={() => toggleSidebarGroup(group.id)}
+        >
+          <span className="sidebar-group-icon">
+            {group.icon}
+          </span>
 
+          <span className="sidebar-group-title">
+            {group.title}
+          </span>
 
-  <li className="nav-label">Leave Management</li>
+          <span
+            className={`sidebar-group-chevron ${
+              groupIsOpen ? "open" : ""
+            }`}
+          >
+            ⌄
+          </span>
+        </button>
 
-  <li
-    className={activeTab === "records" ? "active" : ""}
-    onClick={() => closeSidebarAndGo("records")}
-  >
-    Leave Records
-  </li>
-
-  <li
-    className={activeTab === "staff-on-leave" ? "active" : ""}
-    onClick={() => closeSidebarAndGo("staff-on-leave")}
-  >
-    Staff on Leave
-  </li>
-
-<li
-  className={activeTab === "leave-by-section" ? "active" : ""}
-  onClick={() => closeSidebarAndGo("leave-by-section")}
+        <ul
+  className={`sidebar-submenu ${
+    groupIsOpen ? "is-open" : ""
+  }`}
+  aria-hidden={!groupIsOpen}
 >
-  Leave by Section
-</li>
-
-  <li
-    className={activeTab === "leave-trend" ? "active" : ""}
-    onClick={() => closeSidebarAndGo("leave-trend")}
-  >
-    Leave Trend
-  </li>
-
-  <li
-    className={activeTab === "yaumiyya" ? "active" : ""}
-    onClick={() => closeSidebarAndGo("yaumiyya")}
-  >
-    Yaumiyya
-  </li>
-
-  <li className="nav-label">Attendance</li>
-
-  <li
-    className={activeTab === "attendance" ? "active" : ""}
-    onClick={() => closeSidebarAndGo("attendance")}
-  >
-    Attendance
-  </li>
-
-  <li
-    className={activeTab === "presence-board" ? "active" : ""}
-    onClick={() => closeSidebarAndGo("presence-board")}
-  >
-    Presence Board
-  </li>
-
-  <li
-    className={activeTab === "attendance-settings" ? "active" : ""}
-    onClick={() => closeSidebarAndGo("attendance-settings")}
-  >
-    Attendance Settings
-  </li>
-
-  <li className="nav-label">Mosque Services</li>
-
-  <li
-    className={activeTab === "imaam-directory" ? "active" : ""}
-    onClick={() => closeSidebarAndGo("imaam-directory")}
-  >
-    Imaam Directory
-  </li>
-
-  <li
-    className={activeTab === "vaguthee-imaam" ? "active" : ""}
-    onClick={() => closeSidebarAndGo("vaguthee-imaam")}
-  >
-    Vaguthee Imaam
-  </li>
-
-  <li
-    className={activeTab === "hukuru-2026" ? "active" : ""}
-    onClick={() => closeSidebarAndGo("hukuru-2026")}
-  >
-    Friday Prayer Schedule
-  </li>
-
-  <li className="nav-label">Administration</li>
-
-<li
-  className={activeTab === "admin-panel" ? "active" : ""}
-  onClick={() => closeSidebarAndGo("admin-panel")}
->
-  Admin Panel
-</li>
-
-<li className="nav-label">Reports</li>
-
-  <li
-    className={activeTab === "reports" ? "active" : ""}
-    onClick={() => closeSidebarAndGo("reports")}
-  >
-    Reports
-  </li>
+  {group.tabs.map((item) => (
+              <li
+                key={item.tab}
+                className={activeTab === item.tab ? "active" : ""}
+                onClick={() => closeSidebarAndGo(item.tab)}
+              >
+                <span className="sidebar-submenu-dot"></span>
+                {item.label}
+              </li>
+            ))}
+          </ul>
+      </li>
+    );
+  })}
 </ul>
       </nav>
 
@@ -5191,7 +5216,7 @@ return (
     onClick={() => setBuildInfoOpen(true)}
     title="View latest website upgrades"
   >
-    Build V5.0 • 08 Jul 2026
+    Build V5.4 • 26 Jul 2026
   </button>
 
   <button className="logout-btn" onClick={handleLogout}>
@@ -10758,8 +10783,8 @@ Unlock Hukuru 2026
       <div className="build-info-header">
         <div>
           <span className="build-info-kicker">WEBSITE UPDATE LOG</span>
-          <h3>Build V5.0</h3>
-          <p>08 Jul 2026 • Latest website upgrades</p>
+          <h3>Build V5.4</h3>
+          <p>26 Jul 2026 • Latest website upgrades</p>
         </div>
 
         <button
