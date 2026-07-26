@@ -95,24 +95,36 @@ const addReportHeaderFooter = (pdf, title, totalRecords) => {
 
 const recentBuildUpgrades = [
   {
-  title: "New Sidebar and Menu Animations",
-  detail: "Sidebar navigation was redesigned with clean expandable sections, direct Home links and smooth open/close animations."
-},
+    title: "Global Header Search",
+    detail: "Added a new header search to quickly find staff, leave records, groups, notices and public holidays."
+  },
   {
-    title: "Added admin Panel Phase 2",
-    detail: "Staff Registration, Add Leave Record and Holiday Management were moved into the Admin Panel."
+    title: "Search Result Filters",
+    detail: "Global search now includes filter chips for All, Staff, Leave, Groups, Notices and Holidays."
+  },
+  {
+    title: "Leave Days Slider",
+    detail: "Number of Leave Days in Add Leave Record was changed from manual typing to a slider for easier selection."
+  },
+  {
+    title: "New Sidebar Navigation",
+    detail: "Sidebar was redesigned with direct Home links and cleaner expandable sections for better navigation."
+  },
+  {
+    title: "Sidebar Menu Animations",
+    detail: "Expandable sidebar menus now open and close smoothly with matching animations."
+  },
+  {
+    title: "Admin Panel Phase 2",
+    detail: "Staff Registration, Add Leave Record, Holiday Management and Group Management were moved into the Admin Panel."
   },
   {
     title: "Staff Admin Controls",
-    detail: "Admin Panel now includes update email, activate/deactivate, delete staff and bulk supervisor or section changes."
+    detail: "Admin Panel now includes update email, activate or deactivate staff, delete staff and bulk supervisor or section changes."
   },
   {
     title: "Leave Admin Controls",
-    detail: "Admin Panel now includes edit leave, delete leave, check overlaps and update work handover controls."
-  },
-  {
-    title: "Group Admin Controls",
-    detail: "Staff groups can now be created, edited, viewed and deleted from the Admin Panel."
+    detail: "Admin Panel now includes edit leave, delete leave, overlap checking and work handover controls."
   },
   {
     title: "View-Only Staff Directory",
@@ -120,21 +132,10 @@ const recentBuildUpgrades = [
   },
   {
     title: "View-Only Leave Records",
-    detail: "Leave Records is now a viewing page. Editing and deletion are handled from the Admin Panel."
-  },
-  {
-    title: "View-Only Staff Groups",
-    detail: "Staff Groups page now focuses on viewing groups and members. Management is handled from the Admin Panel."
-  },
-  {
-    title: "Old Admin Tab Removed",
-    detail: "The older hidden Admin tab was removed so all management actions now use the new Admin Panel."
-  },
-  {
-    title: "Smart Admin Shortcuts",
-    detail: "Admin shortcuts now remember the selected section and scroll there automatically after unlocking."
+    detail: "Leave Records is now a viewing page while editing and deletion are handled from the Admin Panel."
   },
 ];
+
 
 const defaultHomeDashboardVisibility = {
   calendar: true,
@@ -158,7 +159,9 @@ const getStaffInitials = (name = "") => {
 
 function App() {
   const [activeTab, setActiveTab] = useState("home");
-const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [globalSearchTerm, setGlobalSearchTerm] = useState("");
+const [globalSearchType, setGlobalSearchType] = useState("all");
 
 const defaultSidebarGroupState = {
   organization: false,
@@ -4997,6 +5000,176 @@ const presenceStats = employees.reduce(
   }
 );
 
+const globalSearchResults = (() => {
+  const term = globalSearchTerm.trim().toLowerCase();
+
+  if (term.length < 2) {
+    return [];
+  }
+
+  const staffResults = employees
+    .filter((employee) =>
+      [
+        employee.name,
+        employee.email,
+        employee.designation,
+        employee.section,
+        getSupervisorDisplayName(employee)
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(term)
+    )
+    .slice(0, 8)
+    .map((employee) => ({
+      type: "Staff",
+      title: employee.name || "Unnamed Staff",
+      detail: `${employee.designation || "No designation"} • ${
+        employee.section || "No section"
+      }`,
+      badge: employee.status === "inactive" ? "Inactive" : "Profile",
+      actionType: "staff",
+      payload: employee
+    }));
+
+  const leaveResults = leaves
+    .filter((leave) =>
+      [
+        leave.employee,
+        leave.start,
+        leave.end,
+        normalizeHandoverList(leave.workHandoverTo).join(" ")
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(term)
+    )
+    .slice(0, 8)
+    .map((leave) => ({
+      type: "Leave",
+      title: leave.employee || "Leave Record",
+      detail: `${leave.start || "—"} to ${leave.end || "—"} • ${calculateLeaveDays(
+        leave.start,
+        leave.end
+      )} working days`,
+      badge: "Records",
+      actionType: "leave",
+      payload: leave
+    }));
+
+  const groupResults = staffGroups
+    .filter((group) =>
+      [group.name, ...(group.members || [])]
+        .join(" ")
+        .toLowerCase()
+        .includes(term)
+    )
+    .slice(0, 8)
+    .map((group) => ({
+      type: "Group",
+      title: group.name || "Staff Group",
+      detail: `${group.members?.length || 0} member${
+        (group.members?.length || 0) === 1 ? "" : "s"
+      }`,
+      badge: "View",
+      actionType: "group",
+      payload: group
+    }));
+
+  const noticeResults = notices
+    .filter((notice) =>
+      [
+        notice.title,
+        notice.description,
+        notice.visibleGroupName,
+        notice.fileName
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(term)
+    )
+    .slice(0, 8)
+    .map((notice) => ({
+      type: "Notice",
+      title: notice.title || "Notice",
+      detail: `${formatNoticeDate(notice.publishDate)} • ${getNoticePriorityLabel(
+        notice.priority
+      )}`,
+      badge: "Board",
+      actionType: "notice",
+      payload: notice
+    }));
+
+  const holidayResults = publicHolidays
+    .filter((holiday) =>
+      [holiday.name, holiday.date]
+        .join(" ")
+        .toLowerCase()
+        .includes(term)
+    )
+    .slice(0, 8)
+    .map((holiday) => ({
+      type: "Holiday",
+      title: holiday.name || "Public Holiday",
+      detail: formatNoticeDate(holiday.date),
+      badge: "Admin",
+      actionType: "holiday",
+      payload: holiday
+    }));
+
+  const resultGroups = {
+    all: [
+      ...staffResults,
+      ...leaveResults,
+      ...groupResults,
+      ...noticeResults,
+      ...holidayResults
+    ],
+    staff: staffResults,
+    leave: leaveResults,
+    groups: groupResults,
+    notices: noticeResults,
+    holidays: holidayResults
+  };
+
+  return (resultGroups[globalSearchType] || resultGroups.all).slice(0, 12);
+}, [
+  globalSearchTerm,
+  globalSearchType,
+  employees,
+  leaves,
+  staffGroups,
+  notices,
+  publicHolidays,
+  calculateLeaveDays
+]);
+
+const openGlobalSearchResult = (result) => {
+  if (result.actionType === "staff") {
+    openEmployeeProfile(result.payload);
+  }
+
+  if (result.actionType === "leave") {
+    setLeaveSearch(result.payload.employee || "");
+    closeSidebarAndGo("records");
+  }
+
+  if (result.actionType === "group") {
+    openGroupModal(result.payload);
+  }
+
+  if (result.actionType === "notice") {
+    setNoticeFilter("all");
+    closeSidebarAndGo("notice-board");
+  }
+
+  if (result.actionType === "holiday") {
+    openAdminPanelSection("admin-holiday-section");
+  }
+
+  setGlobalSearchTerm("");
+};
+
 const adminPanelCards = [
   {
     title: "Staff Admin",
@@ -5209,6 +5382,98 @@ return (
     ? "COUNCIL OVERVIEW"
     : activeTab.replace(/-/g, " ").toUpperCase()}
 </h1>
+
+          <div className="global-search">
+            <span className="global-search-icon">⌕</span>
+
+            <input
+              type="text"
+              placeholder="Search staff, leave, groups, notices..."
+              value={globalSearchTerm}
+              onChange={(e) => setGlobalSearchTerm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setGlobalSearchTerm("");
+                }
+
+                if (
+                  e.key === "Enter" &&
+                  globalSearchResults.length > 0
+                ) {
+                  openGlobalSearchResult(globalSearchResults[0]);
+                }
+              }}
+            />
+
+            {globalSearchTerm && (
+              <button
+                type="button"
+                className="global-search-clear"
+                onClick={() => {
+  setGlobalSearchTerm("");
+  setGlobalSearchType("all");
+}}
+                aria-label="Clear search"
+              >
+                ×
+              </button>
+            )}
+
+            {globalSearchTerm.trim().length >= 2 && (
+              <div className="global-search-results">
+  <div className="global-search-filter-row">
+    {[
+      { id: "all", label: "All" },
+      { id: "staff", label: "Staff" },
+      { id: "leave", label: "Leave" },
+      { id: "groups", label: "Groups" },
+      { id: "notices", label: "Notices" },
+      { id: "holidays", label: "Holidays" }
+    ].map((filter) => (
+      <button
+        type="button"
+        key={filter.id}
+        className={`global-search-filter ${
+          globalSearchType === filter.id ? "active" : ""
+        }`}
+        onClick={() => setGlobalSearchType(filter.id)}
+      >
+        {filter.label}
+      </button>
+    ))}
+  </div>
+
+  {globalSearchResults.length > 0 ? (
+                  globalSearchResults.map((result, index) => (
+                    <button
+                      type="button"
+                      className="global-search-result"
+                      key={`${result.type}-${result.title}-${index}`}
+                      onClick={() => openGlobalSearchResult(result)}
+                    >
+                      <span className="global-search-type">
+                        {result.type}
+                      </span>
+
+                      <span className="global-search-copy">
+                        <strong>{result.title}</strong>
+                        <small>{result.detail}</small>
+                      </span>
+
+                      <span className="global-search-badge">
+                        {result.badge}
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="global-search-empty">
+                    No matching results found.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="user-profile">
   <button
     type="button"
@@ -7412,22 +7677,48 @@ Holiday Management.
           <span></span>
         </div>
 
-        <label className="leave-entry-field full">
-          <span>Number of Leave Days</span>
+        <div
+  className={`leave-entry-field full leave-days-slider-field ${
+    !leaveForm.start ? "is-disabled" : ""
+  }`}
+>
+  <div className="leave-days-slider-header">
+    <span>Number of Leave Days</span>
 
-          <input
-            type="number"
-            min="1"
-            step="1"
-            inputMode="numeric"
-            placeholder="Example: 5"
-            disabled={!leaveForm.start}
-            value={leaveForm.leaveDays}
-            onChange={(e) =>
-              handleLeaveDaysChange(e.target.value)
-            }
-          />
-        </label>
+    <strong>
+      {leaveForm.leaveDays
+        ? `${leaveForm.leaveDays} day${
+            Number(leaveForm.leaveDays) === 1 ? "" : "s"
+          }`
+        : "Select days"}
+    </strong>
+  </div>
+
+  <input
+    type="range"
+    min="1"
+    max="90"
+    step="1"
+    disabled={!leaveForm.start}
+    value={leaveForm.leaveDays || 1}
+    onChange={(e) =>
+      handleLeaveDaysChange(e.target.value)
+    }
+  />
+
+  <div className="leave-days-slider-scale">
+    <span>1 day</span>
+    <span>30</span>
+    <span>60</span>
+    <span>90 days</span>
+  </div>
+
+  <small>
+    {!leaveForm.start
+      ? "Select leave start date first to use the slider."
+      : "Drag the slider to automatically calculate the leave end date."}
+  </small>
+</div>
 
         <div className="leave-entry-summary">
           <div className="leave-summary-row">
