@@ -95,47 +95,46 @@ const addReportHeaderFooter = (pdf, title, totalRecords) => {
 
 const recentBuildUpgrades = [
   {
-    title: "Global Header Search",
-    detail: "Added a new header search to quickly find staff, leave records, groups, notices and public holidays."
+    title: "Leave Type Added",
+    detail: "Leave records now include Leave Type, such as Annual Leave, Family Leave, Sick Leave With MC and Sick Leave Without MC."
   },
   {
-    title: "Search Result Filters",
-    detail: "Global search now includes filter chips for All, Staff, Leave, Groups, Notices and Holidays."
+    title: "Leave Type in Records Table",
+    detail: "Leave Records now displays Leave Type between Staff and Duration for clearer leave history viewing."
   },
   {
-    title: "Leave Days Slider",
-    detail: "Number of Leave Days in Add Leave Record was changed from manual typing to a slider for easier selection."
+    title: "Leave Type in Admin Panel",
+    detail: "Admin Panel Add Leave and Edit Leave forms now include a Leave Type selector."
   },
   {
-    title: "New Sidebar Navigation",
-    detail: "Sidebar was redesigned with direct Home links and cleaner expandable sections for better navigation."
+    title: "Yaumiyya Leave Import",
+    detail: "Yaumiyya can now import staff from Leave Records based on the selected date and leave type."
   },
   {
-    title: "Sidebar Menu Animations",
-    detail: "Expandable sidebar menus now open and close smoothly with matching animations."
+    title: "Multiple Yaumiyya Import Types",
+    detail: "Annual Leave, Family Leave, Sick Leave With MC and Sick Leave Without MC can now be imported separately into Yaumiyya."
   },
   {
-    title: "Admin Panel Phase 2",
-    detail: "Staff Registration, Add Leave Record, Holiday Management and Group Management were moved into the Admin Panel."
+    title: "Yaumiyya Import Confirmation Popup",
+    detail: "Importing staff into Yaumiyya now opens a confirmation popup showing the staff list before adding them."
   },
   {
-    title: "Staff Admin Controls",
-    detail: "Admin Panel now includes update email, activate or deactivate staff, delete staff and bulk supervisor or section changes."
+    title: "Safe Yaumiyya Import",
+    detail: "Removing imported staff from Yaumiyya does not affect the original Leave Records."
   },
   {
-    title: "Leave Admin Controls",
-    detail: "Admin Panel now includes edit leave, delete leave, overlap checking and work handover controls."
+    title: "Daily Leaves Popup Mode",
+    detail: "Home page Daily Leaves can now open as a popup instead of only expanding below the calendar."
   },
   {
-    title: "View-Only Staff Directory",
-    detail: "Staff Directory is now a clean viewing page with search, filters, status and staff profile access."
+    title: "Admin Display Style Setting",
+    detail: "Admin Panel now includes a setting to switch Daily Leaves between Inline Dropdown and Popup Modal display."
   },
   {
-    title: "View-Only Leave Records",
-    detail: "Leave Records is now a viewing page while editing and deletion are handled from the Admin Panel."
-  },
+    title: "Modern Popup Animations",
+    detail: "Daily Leaves and Yaumiyya import popups now include smooth open and close animations."
+  }
 ];
-
 
 const defaultHomeDashboardVisibility = {
   calendar: true,
@@ -190,6 +189,7 @@ const [openSidebarGroups, setOpenSidebarGroups] = useState(
 
   const [editLeaveForm, setEditLeaveForm] = useState({
   employee: "",
+  leaveType: "Annual Leave",
   start: "",
   end: "",
   leaveDays: "",
@@ -235,6 +235,13 @@ const [
   isHomeVisibilitySaving,
   setIsHomeVisibilitySaving
 ] = useState(false);
+
+const [dailyLeaveDisplayMode, setDailyLeaveDisplayMode] = useState("inline");
+const [dailyLeavePopupOpen, setDailyLeavePopupOpen] = useState(false);
+const [dailyLeavePopupClosing, setDailyLeavePopupClosing] = useState(false);
+
+const [yaumiyyaImportModal, setYaumiyyaImportModal] = useState(null);
+const [yaumiyyaImportModalClosing, setYaumiyyaImportModalClosing] = useState(false);
 
   const [adminPanelUnlocked, setAdminPanelUnlocked] = useState(false);
   const [adminPanelPassword, setAdminPanelPassword] = useState("");
@@ -1029,6 +1036,7 @@ const [overviewYaumiyyaRecord, setOverviewYaumiyyaRecord] = useState({
 
   const [leaveForm, setLeaveForm] = useState({
   employee: "",
+  leaveType: "Annual Leave",
   start: "",
   end: "",
   leaveDays: "",
@@ -1153,14 +1161,27 @@ const loadHomeDashboardVisibility = async () => {
     const settingsSnapshot = await getDoc(settingsReference);
 
     if (settingsSnapshot.exists()) {
+      const settingsData = settingsSnapshot.data();
+
+      const {
+        dailyLeaveDisplayMode: savedDailyLeaveDisplayMode,
+        ...visibilitySettings
+      } = settingsData;
+
       setHomeDashboardVisibility({
         ...defaultHomeDashboardVisibility,
-        ...settingsSnapshot.data()
+        ...visibilitySettings
       });
+
+      setDailyLeaveDisplayMode(
+        savedDailyLeaveDisplayMode === "popup" ? "popup" : "inline"
+      );
     } else {
       setHomeDashboardVisibility(
         defaultHomeDashboardVisibility
       );
+
+      setDailyLeaveDisplayMode("inline");
     }
   } catch (error) {
     console.error(
@@ -1168,10 +1189,11 @@ const loadHomeDashboardVisibility = async () => {
       error
     );
 
-    // Keep everything visible if the setting cannot load.
     setHomeDashboardVisibility(
       defaultHomeDashboardVisibility
     );
+
+    setDailyLeaveDisplayMode("inline");
   }
 };
 
@@ -1213,6 +1235,43 @@ const updateHomeDashboardVisibility = async (
     );
   } finally {
     setIsHomeVisibilitySaving(false);
+  }
+};
+
+const updateDailyLeaveDisplayMode = async (mode) => {
+  const nextMode = mode === "popup" ? "popup" : "inline";
+  const previousMode = dailyLeaveDisplayMode;
+
+  setDailyLeaveDisplayMode(nextMode);
+  setDailyLeavePopupOpen(false);
+  setDailyLeavePopupClosing(false);
+
+  try {
+    await setDoc(
+      doc(db, "appSettings", "homeDashboard"),
+      {
+        dailyLeaveDisplayMode: nextMode
+      },
+      { merge: true }
+    );
+
+    showToast(
+      nextMode === "popup"
+        ? "Daily Leaves will now open as a popup."
+        : "Daily Leaves will now open inline."
+    );
+  } catch (error) {
+    console.error(
+      "Could not save Daily Leave display mode:",
+      error
+    );
+
+    setDailyLeaveDisplayMode(previousMode);
+
+    showToast(
+      "Could not save Daily Leave display style.",
+      "error"
+    );
   }
 };
 
@@ -3027,13 +3086,14 @@ const saveLeave = async (e) => {
 
   try {
     const payload = {
-      employee: leaveForm.employee,
-      start: leaveForm.start,
-      end: leaveForm.end,
-      totalCalendarDays: breakdown.totalCalendarDays,
-      leaveDays: breakdown.leaveDays,
-      workHandoverTo: selectedHandoverStaff
-    };
+  employee: leaveForm.employee,
+  leaveType: leaveForm.leaveType || "Annual Leave",
+  start: leaveForm.start,
+  end: leaveForm.end,
+  totalCalendarDays: breakdown.totalCalendarDays,
+  leaveDays: breakdown.leaveDays,
+  workHandoverTo: selectedHandoverStaff
+};
 
     const docRef = await addDoc(collection(db, "leaves"), payload);
 
@@ -3043,12 +3103,13 @@ const saveLeave = async (e) => {
     ]);
 
     setLeaveForm({
-      employee: "",
-      start: "",
-      end: "",
-      leaveDays: "",
-      workHandoverTo: ["", "", "", ""]
-    });
+  employee: "",
+  leaveType: "Annual Leave",
+  start: "",
+  end: "",
+  leaveDays: "",
+  workHandoverTo: ["", "", "", ""]
+});
 
     showToast("Leave record added successfully.");
   } catch (error) {
@@ -3066,11 +3127,12 @@ const openEditLeaveModal = (leave) => {
   setEditLeavePinInput("");
 
   setEditLeaveForm({
-    employee: leave.employee || "",
-    start: leave.start || "",
-    end: leave.end || "",
-    leaveDays: "",
-    workHandoverTo: [
+  employee: leave.employee || "",
+  leaveType: leave.leaveType || "Annual Leave",
+  start: leave.start || "",
+  end: leave.end || "",
+  leaveDays: "",
+  workHandoverTo: [
   savedHandover[0] || "",
   savedHandover[1] || "",
   savedHandover[2] || "",
@@ -3084,12 +3146,13 @@ const closeEditLeaveModal = () => {
   setEditLeavePinInput("");
 
   setEditLeaveForm({
-    employee: "",
-    start: "",
-    end: "",
-    leaveDays: "",
-    workHandoverTo: ["", "", "", ""]
-  });
+  employee: "",
+  leaveType: "Annual Leave",
+  start: "",
+  end: "",
+  leaveDays: "",
+  workHandoverTo: ["", "", "", ""]
+});
 };
 
 const handleEditLeaveStartChange = (start) => {
@@ -3195,13 +3258,14 @@ if (editLeavePinInput !== "2391") {
 
   try {
     const payload = {
-      employee: editLeaveForm.employee,
-      start: editLeaveForm.start,
-      end: editLeaveForm.end,
-      totalCalendarDays: breakdown.totalCalendarDays,
-      leaveDays: breakdown.leaveDays,
-      workHandoverTo: selectedHandoverStaff
-    };
+  employee: editLeaveForm.employee,
+  leaveType: editLeaveForm.leaveType || "Annual Leave",
+  start: editLeaveForm.start,
+  end: editLeaveForm.end,
+  totalCalendarDays: breakdown.totalCalendarDays,
+  leaveDays: breakdown.leaveDays,
+  workHandoverTo: selectedHandoverStaff
+};
 
     await setDoc(
       doc(db, "leaves", editLeaveModal.id),
@@ -4886,6 +4950,179 @@ const dailyLeaveSections = [
   }
 ];
 
+const renderHomeDailyLeaveCards = (displayMode = "inline") => {
+  const visibleSections = dailyLeaveSections.filter(
+    (section) => section.names.length > 0
+  );
+
+  const totalDailyLeaveCount = dailyLeaveSections.reduce(
+    (total, section) => total + section.names.length,
+    0
+  );
+
+  if (displayMode === "popup") {
+    return (
+      <div className="daily-leave-modern-layout">
+        <div className="daily-leave-modern-summary">
+          <article className="daily-leave-modern-total-card">
+            <span>Total Staff</span>
+            <strong>{totalDailyLeaveCount}</strong>
+            <small>Recorded in Yaumiyya for this date</small>
+          </article>
+
+          <div className="daily-leave-modern-count-grid">
+            {dailyLeaveSections.map((section) => (
+              <article
+                className={`daily-leave-modern-count-card ${
+                  section.names.length === 0 ? "is-empty" : ""
+                }`}
+                key={`summary-${section.key}`}
+              >
+                <span>{section.title}</span>
+                <strong>{section.names.length}</strong>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        {visibleSections.length > 0 ? (
+          <div className="daily-leave-modern-section-stack">
+            {visibleSections.map((section) => (
+              <section
+                className="daily-leave-modern-section"
+                key={section.key}
+              >
+                <div className="daily-leave-modern-section-header">
+                  <div>
+                    <span className="daily-leave-modern-kicker">
+                      LEAVE CATEGORY
+                    </span>
+
+                    <h4>{section.title}</h4>
+                  </div>
+
+                  <span className="daily-leave-modern-count-pill">
+                    {section.names.length}
+                  </span>
+                </div>
+
+                <div className="daily-leave-modern-person-grid">
+                  {section.names.map((staffName, index) => (
+                    <div
+                      key={`${section.key}-${staffName}-${index}`}
+                      className="daily-leave-modern-person-card"
+                    >
+                      <span className="home-daily-avatar">
+                        {getStaffInitials(staffName)}
+                      </span>
+
+                      <strong>
+                        {getEmployeeDisplayName(staffName)}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        ) : (
+          <div className="daily-leave-popup-empty">
+            <span>✓</span>
+
+            <div>
+              <strong>No Daily Leave records</strong>
+
+              <small>
+                No Yaumiyya leave categories have been recorded for today.
+              </small>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="home-daily-grid">
+      {visibleSections.map((section) => (
+        <section
+          className="panel home-daily-category"
+          key={section.key}
+        >
+          <div className="flex-between mb-4">
+            <h2>{section.title}</h2>
+
+            <span className="badge">
+              {section.names.length}
+            </span>
+          </div>
+
+          <div
+            className="closest-list"
+            style={{
+              maxHeight: "none",
+              overflowY: "visible"
+            }}
+          >
+            {section.names.map((staffName, index) => (
+              <div
+                key={`${section.key}-${staffName}-${index}`}
+                className="closest-item"
+              >
+                <div className="home-daily-person">
+                  <span className="home-daily-avatar">
+                    {getStaffInitials(staffName)}
+                  </span>
+
+                  <strong>
+                    {getEmployeeDisplayName(staffName)}
+                  </strong>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      {visibleSections.length === 0 && (
+        <div className="home-daily-empty">
+          <span>✓</span>
+
+          <div>
+            <strong>No Daily Leave records</strong>
+
+            <small>
+              No Yaumiyya leave categories have been recorded for today.
+            </small>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const handleHomeDailyLeaveToggle = () => {
+  if (dailyLeaveDisplayMode === "popup") {
+    setDailyLeavePopupOpen(true);
+    return;
+  }
+
+  setShowSalaamFRL((currentValue) => !currentValue);
+};
+
+const closeHomeDailyLeavePopup = () => {
+  if (!dailyLeavePopupOpen || dailyLeavePopupClosing) {
+    return;
+  }
+
+  setDailyLeavePopupClosing(true);
+
+  setTimeout(() => {
+    setDailyLeavePopupOpen(false);
+    setDailyLeavePopupClosing(false);
+  }, 260);
+};
+
 const visibleHomeTopWidgetCount =
   Number(homeDashboardVisibility.calendar) +
   Number(homeDashboardVisibility.upcomingLeaves);
@@ -5000,6 +5237,166 @@ const presenceStats = employees.reduce(
   }
 );
 
+const yaumiyyaImportLeaveTypes = {
+  annualLeave: {
+    label: "Annual Leave",
+    leaveTypes: ["Annual Leave"]
+  },
+  familyLeave: {
+    label: "Family Leave",
+    leaveTypes: ["Family Leave"]
+  },
+  sickLeaveMC: {
+    label: "Sick Leave With MC",
+    leaveTypes: ["Sick Leave with MC", "Sick Leave With MC"]
+  },
+  sickLeaveNoMC: {
+    label: "Sick Leave Without MC",
+    leaveTypes: ["Sick Leave without MC", "Sick Leave Without MC"]
+  }
+};
+
+const getLeaveRecordNamesForYaumiyyaCategory = (categoryKey) => {
+  const category = yaumiyyaImportLeaveTypes[categoryKey];
+
+  if (!category) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      leaves
+        .filter((leave) => {
+          const leaveType = leave.leaveType || "Annual Leave";
+
+          const matchesLeaveType = category.leaveTypes.some(
+            (type) =>
+              normalizeNoticeName(type) === normalizeNoticeName(leaveType)
+          );
+
+          const isOnSelectedDate =
+            leave.start &&
+            leave.end &&
+            leave.start <= yaumiyyaDate &&
+            leave.end >= yaumiyyaDate;
+
+          const isActiveStaff = activeEmployeeNames.has(
+            normalizeNoticeName(leave.employee)
+          );
+
+          return matchesLeaveType && isOnSelectedDate && isActiveStaff;
+        })
+        .map((leave) => leave.employee)
+        .filter(Boolean)
+    )
+  ].sort((a, b) => a.localeCompare(b));
+};
+
+const getMissingLeaveRecordNamesForYaumiyyaCategory = (categoryKey) => {
+  const namesFromLeaveRecords =
+    getLeaveRecordNamesForYaumiyyaCategory(categoryKey);
+
+  return namesFromLeaveRecords.filter(
+    (staffName) =>
+      !(yaumiyyaRecord[categoryKey] || []).some(
+        (existingName) =>
+          normalizeNoticeName(existingName) ===
+          normalizeNoticeName(staffName)
+      )
+  );
+};
+
+const addLeaveRecordsToYaumiyyaCategory = (categoryKey) => {
+  const category = yaumiyyaImportLeaveTypes[categoryKey];
+
+  if (!category) {
+    return;
+  }
+
+  const namesFromLeaveRecords =
+    getLeaveRecordNamesForYaumiyyaCategory(categoryKey);
+
+  const missingNames =
+    getMissingLeaveRecordNamesForYaumiyyaCategory(categoryKey);
+
+  if (namesFromLeaveRecords.length === 0) {
+    return alert(
+      `No ${category.label} records found for ${formatNoticeDate(
+        yaumiyyaDate
+      )}.`
+    );
+  }
+
+  if (missingNames.length === 0) {
+    return showToast(
+      `All ${category.label} staff for this date are already added to Yaumiyya.`
+    );
+  }
+
+  setYaumiyyaImportModal({
+    categoryKey,
+    categoryLabel: category.label,
+    names: missingNames
+  });
+
+  setYaumiyyaImportModalClosing(false);
+};
+
+const closeYaumiyyaImportModal = () => {
+  if (!yaumiyyaImportModal || yaumiyyaImportModalClosing) {
+    return;
+  }
+
+  setYaumiyyaImportModalClosing(true);
+
+  setTimeout(() => {
+    setYaumiyyaImportModal(null);
+    setYaumiyyaImportModalClosing(false);
+  }, 260);
+};
+
+const confirmYaumiyyaImportFromLeaveRecords = async () => {
+  if (!yaumiyyaImportModal) {
+    return;
+  }
+
+  const { categoryKey, categoryLabel } = yaumiyyaImportModal;
+
+  const missingNames = (yaumiyyaImportModal.names || []).filter(
+    (staffName) =>
+      !(yaumiyyaRecord[categoryKey] || []).some(
+        (existingName) =>
+          normalizeNoticeName(existingName) ===
+          normalizeNoticeName(staffName)
+      )
+  );
+
+  if (missingNames.length === 0) {
+    closeYaumiyyaImportModal();
+
+    return showToast(
+      `All ${categoryLabel} staff for this date are already added to Yaumiyya.`
+    );
+  }
+
+  const nextRecord = {
+    ...yaumiyyaRecord,
+    [categoryKey]: [
+      ...(yaumiyyaRecord[categoryKey] || []),
+      ...missingNames
+    ]
+  };
+
+  setYaumiyyaRecord(nextRecord);
+  await saveYaumiyyaRecord(nextRecord);
+
+  showToast(
+    `${missingNames.length} ${categoryLabel} staff added to Yaumiyya.`
+  );
+
+  closeYaumiyyaImportModal();
+};
+
 const globalSearchResults = (() => {
   const term = globalSearchTerm.trim().toLowerCase();
 
@@ -5037,11 +5434,12 @@ const globalSearchResults = (() => {
   const leaveResults = leaves
     .filter((leave) => {
       const searchableText = [
-        leave.employee,
-        leave.start,
-        leave.end,
-        normalizeHandoverList(leave.workHandoverTo).join(" ")
-      ]
+  leave.employee,
+  leave.leaveType,
+  leave.start,
+  leave.end,
+  normalizeHandoverList(leave.workHandoverTo).join(" ")
+]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -5052,10 +5450,9 @@ const globalSearchResults = (() => {
     .map((leave) => ({
       type: "Leave",
       title: leave.employee || "Leave Record",
-      detail: `${leave.start || "—"} to ${leave.end || "—"} • ${calculateLeaveDays(
-        leave.start,
-        leave.end
-      )} working days`,
+      detail: `${leave.leaveType || "Annual Leave"} • ${leave.start || "—"} to ${
+  leave.end || "—"
+} • ${calculateLeaveDays(leave.start, leave.end)} working days`,
       badge: "Records",
       actionType: "leave",
       payload: leave
@@ -5788,104 +6185,35 @@ return (
     className="panel full-width home-daily-panel"
     style={{ gridColumn: "1 / -1" }}
   >
-    {/* SHOW / HIDE BUTTON */}
     <button
       className="primary-btn home-daily-toggle"
       type="button"
-      aria-expanded={showSalaamFRL}
-      onClick={() =>
-        setShowSalaamFRL(
-          (currentValue) => !currentValue
-        )
+      aria-expanded={
+        dailyLeaveDisplayMode === "popup"
+          ? dailyLeavePopupOpen
+          : showSalaamFRL
       }
+      onClick={handleHomeDailyLeaveToggle}
     >
-      {showSalaamFRL
-        ? "Hide Daily Leaves"
-        : "Show Daily Leaves"}
+      {dailyLeaveDisplayMode === "popup"
+        ? "Show Daily Leaves"
+        : showSalaamFRL
+          ? "Hide Daily Leaves"
+          : "Show Daily Leaves"}
     </button>
 
-    {/* ANIMATED CONTENT */}
-    <div
-      className={`home-daily-collapse ${
-        showSalaamFRL ? "is-open" : ""
-      }`}
-      aria-hidden={!showSalaamFRL}
-    >
-      <div className="home-daily-collapse-inner">
-        <div className="home-daily-grid">
-          {dailyLeaveSections
-            .filter(
-              (section) =>
-                section.names.length > 0
-            )
-            .map((section) => (
-              <section
-                className="panel home-daily-category"
-                key={section.key}
-              >
-                <div className="flex-between mb-4">
-                  <h2>{section.title}</h2>
-
-                  <span className="badge">
-                    {section.names.length}
-                  </span>
-                </div>
-
-                <div
-                  className="closest-list"
-                  style={{
-                    maxHeight: "none",
-                    overflowY: "visible"
-                  }}
-                >
-                  {section.names.map(
-                    (staffName, index) => (
-                      <div
-                        key={`${section.key}-${staffName}-${index}`}
-                        className="closest-item"
-                      >
-                        <div className="home-daily-person">
-                          <span className="home-daily-avatar">
-                            {getStaffInitials(
-                              staffName
-                            )}
-                          </span>
-
-                          <strong>
-                            {getEmployeeDisplayName(
-                              staffName
-                            )}
-                          </strong>
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
-              </section>
-            ))}
-
-          {dailyLeaveSections.every(
-            (section) =>
-              section.names.length === 0
-          ) && (
-            <div className="home-daily-empty">
-              <span>✓</span>
-
-              <div>
-                <strong>
-                  No Daily Leave records
-                </strong>
-
-                <small>
-                  No Yaumiyya leave categories have
-                  been recorded for today.
-                </small>
-              </div>
-            </div>
-          )}
+    {dailyLeaveDisplayMode === "inline" && (
+      <div
+        className={`home-daily-collapse ${
+          showSalaamFRL ? "is-open" : ""
+        }`}
+        aria-hidden={!showSalaamFRL}
+      >
+        <div className="home-daily-collapse-inner">
+          {renderHomeDailyLeaveCards("inline")}
         </div>
       </div>
-    </div>
+    )}
   </section>
 )}
 
@@ -7345,6 +7673,35 @@ Holiday Management.
                 </label>
               ))}
             </div>
+            <div className="admin-work-card home-daily-display-manager">
+              <div className="home-daily-display-copy">
+                <span className="admin-panel-kicker">
+                  DAILY LEAVES DISPLAY
+                </span>
+
+                <h3>Daily Leaves Open Style</h3>
+
+                <p>
+                  Choose whether the Home page Daily Leaves button expands
+                  below the calendar or opens a popup window.
+                </p>
+              </div>
+
+              <label className="admin-field-label">
+                Display Style
+
+                <select
+                  value={dailyLeaveDisplayMode}
+                  disabled={isHomeVisibilitySaving}
+                  onChange={(e) =>
+                    updateDailyLeaveDisplayMode(e.target.value)
+                  }
+                >
+                  <option value="inline">Inline Dropdown</option>
+                  <option value="popup">Popup Modal</option>
+                </select>
+              </label>
+            </div>
           </section>
 
           {/* STAFF ADMIN */}
@@ -7682,6 +8039,29 @@ Holiday Management.
           </select>
         </label>
 
+        <label className="leave-entry-field full">
+          <span>Leave Type</span>
+
+          <select
+            value={leaveForm.leaveType}
+            onChange={(e) =>
+              setLeaveForm({
+                ...leaveForm,
+                leaveType: e.target.value
+              })
+            }
+          >
+            <option value="Annual Leave">Annual Leave</option>
+            <option value="Family Leave">Family Leave</option>
+            <option value="Sick Leave">Sick Leave</option>
+            <option value="Sick Leave with MC">Sick Leave with MC</option>
+            <option value="Sick Leave without MC">Sick Leave without MC</option>
+            <option value="Emergency Leave">Emergency Leave</option>
+            <option value="Official Leave">Official Leave</option>
+            <option value="Other Leave">Other Leave</option>
+          </select>
+        </label>
+
         <div className="leave-date-grid">
           <label className="leave-entry-field date-card">
             <span>Leave Start Date</span>
@@ -7932,8 +8312,12 @@ Holiday Management.
                 <strong>{leave.employee}</strong>
 
                 <small>
-                  {leave.start} — {leave.end}
-                </small>
+  Type: {leave.leaveType || "Annual Leave"}
+</small>
+
+<small>
+  {leave.start} — {leave.end}
+</small>
 
                 <small>
                   {calculateLeaveDays(leave.start, leave.end)} working days
@@ -9656,6 +10040,20 @@ Holiday Management.
         >
           Add Staff
         </button>
+        {yaumiyyaImportLeaveTypes[category.key] && (
+  <button
+    type="button"
+    className="secondary-btn-sm yaumiyya-import-leave-btn"
+    onClick={() =>
+      addLeaveRecordsToYaumiyyaCategory(category.key)
+    }
+  >
+    Add {yaumiyyaImportLeaveTypes[category.key].label} Staff from Leave Records
+    {getMissingLeaveRecordNamesForYaumiyyaCategory(category.key).length > 0
+      ? ` (${getMissingLeaveRecordNamesForYaumiyyaCategory(category.key).length})`
+      : ""}
+  </button>
+)}
       </div>
 )}
 
@@ -10098,15 +10496,21 @@ Unlock Hukuru 2026
                   <thead>
   <tr>
     <th>Staff</th>
-    <th>Duration</th>
-    <th>Days</th>
-    <th>Action</th>
+<th>Leave Type</th>
+<th>Duration</th>
+<th>Days</th>
+<th>Action</th>
   </tr>
 </thead>
                   <tbody>
                     {filteredLeaves.map((l) => (
 <tr key={l.id}>
   <td><strong>{l.employee}</strong></td>
+  <td>
+    <span className="leave-type-badge">
+      {l.leaveType || "Annual Leave"}
+    </span>
+  </td>
   <td>{l.start} — {l.end}</td>
   <td>{calculateLeaveDays(l.start, l.end)}</td>
   <td>
@@ -10123,7 +10527,7 @@ Unlock Hukuru 2026
                     ))}
                     {filteredLeaves.length === 0 && (
   <tr>
-    <td colSpan="4" className="muted text-center">
+    <td colSpan="5" className="muted text-center">
       No leave records found.
     </td>
   </tr>
@@ -10173,6 +10577,29 @@ Unlock Hukuru 2026
               {employee.name}
             </option>
           ))}
+        </select>
+      </label>
+
+      <label className="handover-modal-label">
+        Leave Type
+
+        <select
+          value={editLeaveForm.leaveType}
+          onChange={(e) =>
+            setEditLeaveForm({
+              ...editLeaveForm,
+              leaveType: e.target.value
+            })
+          }
+        >
+          <option value="Annual Leave">Annual Leave</option>
+          <option value="Family Leave">Family Leave</option>
+          <option value="Sick Leave">Sick Leave</option>
+          <option value="Sick Leave with MC">Sick Leave with MC</option>
+          <option value="Sick Leave without MC">Sick Leave without MC</option>
+          <option value="Emergency Leave">Emergency Leave</option>
+          <option value="Official Leave">Official Leave</option>
+          <option value="Other Leave">Other Leave</option>
         </select>
       </label>
 
@@ -11100,6 +11527,153 @@ Unlock Hukuru 2026
   </div>
 )}
 
+{yaumiyyaImportModal && (
+  <div
+    className={`yaumiyya-import-modal-overlay ${
+      yaumiyyaImportModalClosing ? "is-closing" : ""
+    }`}
+    onClick={closeYaumiyyaImportModal}
+  >
+    <div
+      className="yaumiyya-import-modal"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="yaumiyya-import-modal-header">
+        <div>
+          <span className="yaumiyya-import-kicker">
+            IMPORT FROM LEAVE RECORDS
+          </span>
+
+          <h3>
+            Add {yaumiyyaImportModal.categoryLabel} Staff
+          </h3>
+
+          <div className="yaumiyya-import-meta-row">
+            <span>{formatNoticeDate(yaumiyyaDate)}</span>
+
+            <span>
+              {yaumiyyaImportModal.names.length} staff ready to add
+            </span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="yaumiyya-import-close"
+          onClick={closeYaumiyyaImportModal}
+          aria-label="Close Yaumiyya import popup"
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="yaumiyya-import-info-card">
+        <strong>
+          These staff will be added only to Yaumiyya.
+        </strong>
+
+        <small>
+          Confirming this will not edit, remove or change the original Leave Records.
+        </small>
+      </div>
+
+      <div className="yaumiyya-import-staff-grid">
+        {yaumiyyaImportModal.names.map((staffName, index) => (
+          <div
+            className="yaumiyya-import-staff-card"
+            key={`${staffName}-${index}`}
+          >
+            <span className="home-daily-avatar">
+              {getStaffInitials(staffName)}
+            </span>
+
+            <div>
+              <strong>{getEmployeeDisplayName(staffName)}</strong>
+
+              <small>
+                {yaumiyyaImportModal.categoryLabel}
+              </small>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="yaumiyya-import-actions">
+        <button
+          type="button"
+          className="secondary-btn-sm"
+          onClick={closeYaumiyyaImportModal}
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          className="primary-btn-sm"
+          onClick={confirmYaumiyyaImportFromLeaveRecords}
+        >
+          Confirm Add {yaumiyyaImportModal.names.length} Staff
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{dailyLeavePopupOpen && dailyLeaveDisplayMode === "popup" && (
+  <div
+    className={`daily-leave-popup-overlay ${
+      dailyLeavePopupClosing ? "is-closing" : ""
+    }`}
+    onClick={closeHomeDailyLeavePopup}
+  >
+    <div
+      className="daily-leave-popup"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="daily-leave-popup-header">
+        <div>
+          <span className="daily-leave-popup-kicker">
+            DAILY LEAVE SUMMARY
+          </span>
+
+          <h3>Daily Leaves</h3>
+
+<div className="daily-leave-popup-meta-row">
+  <span>{formatNoticeDate(yaumiyyaDate)}</span>
+  <span>
+    {dailyLeaveSections.reduce(
+      (total, section) => total + section.names.length,
+      0
+    )} staff recorded
+  </span>
+</div>
+        </div>
+
+        <button
+          type="button"
+          className="daily-leave-popup-close"
+          onClick={closeHomeDailyLeavePopup}
+          aria-label="Close Daily Leaves popup"
+        >
+          ×
+        </button>
+      </div>
+
+      {renderHomeDailyLeaveCards("popup")}
+
+      <div className="daily-leave-popup-actions">
+        <button
+          type="button"
+          className="primary-btn-sm"
+          onClick={closeHomeDailyLeavePopup}
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
 {buildInfoOpen && (
   <div
     className="confirm-overlay"
@@ -11112,7 +11686,7 @@ Unlock Hukuru 2026
       <div className="build-info-header">
         <div>
           <span className="build-info-kicker">WEBSITE UPDATE LOG</span>
-          <h3>Build V5.4</h3>
+          <h3>Build V5.5</h3>
           <p>26 Jul 2026 • Latest website upgrades</p>
         </div>
 
